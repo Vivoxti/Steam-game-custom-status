@@ -13,3 +13,7 @@ riderModule.iml
 .vs/
 *.user
 *.suo
+
+# Local Copilot / repository instructions
+.github/
+
