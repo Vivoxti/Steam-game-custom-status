@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using SteamGameCustomStatus.Steam;
 using SteamGameCustomStatus.Workflows;
 using System.Windows.Input;
@@ -52,6 +53,11 @@ public partial class MainWindow : Wpf.Window
             RegisteredActionsPanel.Visibility = Wpf.Visibility.Visible;
             MissingActionsPanel.Visibility = Wpf.Visibility.Collapsed;
             OpenSteamAddGameButton.ToolTip = null;
+
+            var isSteamLaunch = (Wpf.Application.Current as App)?.IsSteamLaunch == true;
+            LaunchViaSteamButton.Visibility = isSteamLaunch
+                ? Wpf.Visibility.Collapsed
+                : Wpf.Visibility.Visible;
         }
 
         else
@@ -224,6 +230,33 @@ public partial class MainWindow : Wpf.Window
     private void OpenSteamAddGame_Click(object sender, Wpf.RoutedEventArgs e)
     {
         OpenSteamAddGameWorkflow.Run(this);
+    }
+
+    private void LaunchViaSteam_Click(object sender, Wpf.RoutedEventArgs e)
+    {
+        var shortcutInfoResult = SteamShortcutRenamer.GetCurrentShortcutInfoForLaunch();
+        if (!shortcutInfoResult.Success || shortcutInfoResult.ShortcutInfo is null)
+        {
+            ShowInlineMessage(shortcutInfoResult.Message, isWarning: true);
+            return;
+        }
+
+        var runGameId = shortcutInfoResult.ShortcutInfo.RunGameId;
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = $"steam://rungameid/{runGameId}",
+                UseShellExecute = true
+            });
+        }
+        catch
+        {
+            ShowInlineMessage("Failed to launch via Steam.", isWarning: true);
+            return;
+        }
+
+        (Wpf.Application.Current as App)?.ExitForSteamRelaunch();
     }
 
     private void Hide_Click(object sender, Wpf.RoutedEventArgs e)

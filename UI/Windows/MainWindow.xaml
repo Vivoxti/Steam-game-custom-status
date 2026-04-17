@@ -6,9 +6,9 @@
         mc:Ignorable="d"
         Title="Steam Game Custom Status"
         Width="380"
-        Height="400"
+        Height="444"
         MinWidth="380"
-        MinHeight="400"
+        MinHeight="444"
         Background="Transparent"
         WindowStyle="None"
         AllowsTransparency="True"
@@ -221,6 +221,12 @@
                             Content="Create Desktop Shortcut"
                             Style="{StaticResource ActionBtn}"
                             Click="CreateDesktopShortcut_Click" />
+                    <Button x:Name="LaunchViaSteamButton"
+                            Margin="0,8,0,0"
+                            Content="Launch via Steam"
+                            Style="{StaticResource ActionBtn}"
+                            Click="LaunchViaSteam_Click"
+                            Visibility="Collapsed" />
                 </StackPanel>
 
                 <StackPanel x:Name="MissingActionsPanel"
