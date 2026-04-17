@@ -59,17 +59,17 @@ public partial class App : Wpf.Application
     private void InitializeTrayIcon()
     {
         var contextMenu = new Forms.ContextMenuStrip();
-        contextMenu.Items.Add("Открыть", null, (_, _) => ShowMainWindow());
-        _renameMenuItem = new Forms.ToolStripMenuItem("Переименовать", null, (_, _) => RunRenameWorkflow());
+        contextMenu.Items.Add("Open", null, (_, _) => ShowMainWindow());
+        _renameMenuItem = new Forms.ToolStripMenuItem("Rename", null, (_, _) => RunRenameWorkflow());
         _createDesktopShortcutMenuItem = new Forms.ToolStripMenuItem(
-            "Создать ярлык на рабочий стол",
+            "Create Desktop Shortcut",
             null,
             (_, _) => RunCreateDesktopShortcutWorkflow());
         _actionsSeparator = new Forms.ToolStripSeparator();
         contextMenu.Items.Add(_renameMenuItem);
         contextMenu.Items.Add(_createDesktopShortcutMenuItem);
         contextMenu.Items.Add(_actionsSeparator);
-        contextMenu.Items.Add("Выход", null, (_, _) => ExitApplication());
+        contextMenu.Items.Add("Exit", null, (_, _) => ExitApplication());
         contextMenu.Opening += (_, _) => RefreshTrayMenuState();
 
         _notifyIcon = new Forms.NotifyIcon

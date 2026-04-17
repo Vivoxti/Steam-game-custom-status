@@ -146,7 +146,7 @@
                            FontFamily="Segoe UI Variable Display, Segoe UI"
                            FontSize="13" Foreground="{StaticResource TextSecondary}"
                            TextWrapping="Wrap"
-                           Text="Управляйте именем non-Steam игры и запускайте через Steam." />
+                           Text="Manage the non-Steam game name and launch it through Steam." />
 
                 <Border x:Name="RegisteredStatusCard"
                         Margin="0,18,0,0"
@@ -161,7 +161,7 @@
                                    FontSize="13"
                                    FontWeight="SemiBold"
                                    Foreground="{StaticResource SuccessText}"
-                                   Text="Добавлен в Steam как non-Steam игра" />
+                                   Text="Added to Steam as a non-Steam game" />
                         <TextBlock x:Name="RegisteredStatusDescription"
                                    Margin="0,6,0,0"
                                    FontFamily="Segoe UI Variable Display, Segoe UI"
@@ -185,7 +185,7 @@
                                    FontSize="13"
                                    FontWeight="SemiBold"
                                    Foreground="{StaticResource WarningText}"
-                                   Text="Не найден в Steam как non-Steam игра" />
+                                   Text="Not found in Steam as a non-Steam game" />
                         <TextBlock x:Name="MissingStatusDescription"
                                    Margin="0,6,0,0"
                                    FontFamily="Segoe UI Variable Display, Segoe UI"
@@ -204,15 +204,15 @@
                 <StackPanel x:Name="RegisteredActionsPanel"
                             Margin="0,28,0,0"
                             Visibility="Collapsed">
-                    <Button Content="Переименовать"
+                    <Button Content="Rename"
                             Style="{StaticResource AccentBtn}"
                             Click="RenameButton_Click" />
                     <Button Margin="0,8,0,0"
-                            Content="Создать ярлык на рабочий стол"
+                            Content="Create Desktop Shortcut"
                             Style="{StaticResource ActionBtn}"
                             Click="CreateDesktopShortcut_Click" />
                     <Button Margin="0,8,0,0"
-                            Content="Скрыть в трей"
+                            Content="Hide to Tray"
                             Style="{StaticResource ActionBtn}"
                             Click="Hide_Click" />
                 </StackPanel>
@@ -221,7 +221,7 @@
                             Margin="0,28,0,0"
                             Visibility="Collapsed">
                     <Button x:Name="OpenSteamAddGameButton"
-                            Content="Открыть Steam для добавления игры"
+                            Content="Open Steam to Add Game"
                             Style="{StaticResource AccentBtn}"
                             Click="OpenSteamAddGame_Click" />
                 </StackPanel>

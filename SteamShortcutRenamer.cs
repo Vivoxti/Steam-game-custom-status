@@ -17,15 +17,15 @@ internal static class SteamShortcutRenamer
                 : shortcutInfoResult.ShortcutInfo.AppName;
 
             var description = currentName is null
-                ? "Текущий exe найден среди non-Steam игр Steam."
-                : $"Текущее имя в Steam: {currentName}";
+                ? "The current executable was found among Steam non-Steam games."
+                : $"Current Steam name: {currentName}";
 
             return ShortcutRegistrationStatus.Registered(description, currentName);
         }
 
         return ShortcutRegistrationStatus.NotRegistered(
-            "Текущий exe не найден среди non-Steam игр Steam.",
-            "Подсказка: добавь в Steam именно опубликованный exe этой программы как non-Steam игру, а не Debug-сборку или копию из другой папки.",
+            "The current executable was not found among Steam non-Steam games.",
+            "Tip: add the published executable of this app to Steam as a non-Steam game, not a Debug build or a copy from another folder.",
             shortcutInfoResult.Message);
     }
 
@@ -34,19 +34,19 @@ internal static class SteamShortcutRenamer
         var processPath = Environment.ProcessPath;
         if (string.IsNullOrWhiteSpace(processPath))
         {
-            return RenameLookupResult.Failure("Не удалось определить путь к текущему exe.");
+            return RenameLookupResult.Failure("Could not determine the path to the current executable.");
         }
 
         var steamPath = TryGetSteamPath();
         if (steamPath is null)
         {
-            return RenameLookupResult.Failure("Не удалось найти папку Steam.");
+            return RenameLookupResult.Failure("Could not find the Steam folder.");
         }
 
         var shortcutFiles = GetShortcutFiles(steamPath).ToArray();
         if (shortcutFiles.Length == 0)
         {
-            return RenameLookupResult.Failure("Файлы shortcuts.vdf не найдены. Сначала добавь exe в Steam как non-Steam игру.");
+            return RenameLookupResult.Failure("No shortcuts.vdf files were found. First add this executable to Steam as a non-Steam game.");
         }
 
         foreach (var shortcutFile in shortcutFiles)
@@ -60,8 +60,8 @@ internal static class SteamShortcutRenamer
         }
 
         return RenameLookupResult.Failure(
-            $"Не найден non-Steam ярлык для этого exe: {processPath}\n\n" +
-            "Проверь, что в Steam добавлен именно текущий опубликованный exe, а не другая сборка или путь.");
+            $"No non-Steam shortcut was found for this executable: {processPath}\n\n" +
+            "Make sure Steam contains the currently published executable, not a different build or path.");
     }
 
     public static RenameResult RenameCurrentShortcut(string newName)
@@ -69,19 +69,19 @@ internal static class SteamShortcutRenamer
         var processPath = Environment.ProcessPath;
         if (string.IsNullOrWhiteSpace(processPath))
         {
-            return RenameResult.Failure("Не удалось определить путь к текущему exe.");
+            return RenameResult.Failure("Could not determine the path to the current executable.");
         }
 
         var steamPath = TryGetSteamPath();
         if (steamPath is null)
         {
-            return RenameResult.Failure("Не удалось найти папку Steam.");
+            return RenameResult.Failure("Could not find the Steam folder.");
         }
 
         var shortcutFiles = GetShortcutFiles(steamPath).ToArray();
         if (shortcutFiles.Length == 0)
         {
-            return RenameResult.Failure("Файлы shortcuts.vdf не найдены.");
+            return RenameResult.Failure("No shortcuts.vdf files were found.");
         }
 
         var updatedEntries = 0;
@@ -109,13 +109,13 @@ internal static class SteamShortcutRenamer
         if (updatedEntries == 0)
         {
             return RenameResult.Failure(
-                $"Не найден non-Steam ярлык для этого exe: {processPath}\n\n" +
-                "Проверь, что в Steam добавлен именно текущий опубликованный exe.");
+                $"No non-Steam shortcut was found for this executable: {processPath}\n\n" +
+                "Make sure Steam contains the currently published executable.");
         }
 
         var message =
-            $"Название обновлено на \"{newName}\".\n" +
-            $"Изменено записей: {updatedEntries}, файлов shortcuts.vdf: {updatedFiles}.";
+            $"Name updated to \"{newName}\".\n" +
+            $"Entries changed: {updatedEntries}, shortcuts.vdf files updated: {updatedFiles}.";
 
         return RenameResult.Successful(message);
     }
@@ -141,13 +141,13 @@ internal static class SteamShortcutRenamer
         var processPath = Environment.ProcessPath;
         if (string.IsNullOrWhiteSpace(processPath) || !File.Exists(processPath))
         {
-            return OperationResult.Failure("Не удалось определить путь к текущему exe.");
+            return OperationResult.Failure("Could not determine the path to the current executable.");
         }
 
         var desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
         if (string.IsNullOrWhiteSpace(desktopPath) || !Directory.Exists(desktopPath))
         {
-            return OperationResult.Failure("Не удалось найти папку рабочего стола.");
+            return OperationResult.Failure("Could not find the Desktop folder.");
         }
 
         var exeFileName = Path.GetFileNameWithoutExtension(processPath);
@@ -166,7 +166,7 @@ internal static class SteamShortcutRenamer
         File.WriteAllLines(shortcutPath, lines, Encoding.ASCII);
 
         return OperationResult.Successful(
-            $"Ярлык создан на рабочем столе.\n\nПуть: {shortcutPath}\nСсылка: {url}");
+            $"Desktop shortcut created.\n\nPath: {shortcutPath}\nURL: {url}");
     }
 
     public static OperationResult OpenSteamForAddingCurrentExecutable()
@@ -174,28 +174,28 @@ internal static class SteamShortcutRenamer
         var processPath = Environment.ProcessPath;
         if (string.IsNullOrWhiteSpace(processPath) || !File.Exists(processPath))
         {
-            return OperationResult.Failure("Не удалось определить путь к текущему exe.");
+            return OperationResult.Failure("Could not determine the path to the current executable.");
         }
 
         var manualInstruction =
-            "Если окно добавления non-Steam игры не появится автоматически, открой в Steam пункт " +
-            "\"Игры → Добавить стороннюю игру в мою библиотеку\" и выбери этот exe:\n\n" +
+            "If the Add a Non-Steam Game window does not open automatically, in Steam open " +
+            "\"Games → Add a Non-Steam Game to My Library\" and select this executable:\n\n" +
             processPath;
 
         if (TryStartWithShell("steam://open/addnonsteamgame"))
         {
-            return OperationResult.Successful("Steam открыт для добавления non-Steam игры.\n\n" + manualInstruction);
+            return OperationResult.Successful("Steam was opened for adding a non-Steam game.\n\n" + manualInstruction);
         }
 
         var steamExePath = TryGetSteamExePath();
         if (!string.IsNullOrWhiteSpace(steamExePath) && TryStartWithShell(steamExePath))
         {
-            return OperationResult.Successful("Steam открыт.\n\n" + manualInstruction);
+            return OperationResult.Successful("Steam was opened.\n\n" + manualInstruction);
         }
 
         return OperationResult.Failure(
-            "Не удалось открыть Steam автоматически.\n\n" +
-            "Проверь, что Steam установлен, а затем добавь в библиотеку этот exe вручную:\n\n" +
+            "Could not open Steam automatically.\n\n" +
+            "Make sure Steam is installed, then add this executable to the library manually:\n\n" +
             processPath);
     }
 
@@ -204,19 +204,19 @@ internal static class SteamShortcutRenamer
         var processPath = Environment.ProcessPath;
         if (string.IsNullOrWhiteSpace(processPath))
         {
-            return ShortcutInfoResult.Failure("Не удалось определить путь к текущему exe.");
+            return ShortcutInfoResult.Failure("Could not determine the path to the current executable.");
         }
 
         var steamPath = TryGetSteamPath();
         if (steamPath is null)
         {
-            return ShortcutInfoResult.Failure("Не удалось найти папку Steam.");
+            return ShortcutInfoResult.Failure("Could not find the Steam folder.");
         }
 
         var shortcutFiles = GetShortcutFiles(steamPath).ToArray();
         if (shortcutFiles.Length == 0)
         {
-            return ShortcutInfoResult.Failure("Файлы shortcuts.vdf не найдены.");
+            return ShortcutInfoResult.Failure("No shortcuts.vdf files were found.");
         }
 
         foreach (var shortcutFile in shortcutFiles)
@@ -230,8 +230,8 @@ internal static class SteamShortcutRenamer
         }
 
         return ShortcutInfoResult.Failure(
-            $"Не найден non-Steam ярлык для этого exe: {processPath}\n\n" +
-            "Проверь, что в Steam добавлен именно текущий опубликованный exe.");
+            $"No non-Steam shortcut was found for this executable: {processPath}\n\n" +
+            "Make sure Steam contains the currently published executable.");
     }
 
     private static string? TryGetSteamPath()
@@ -394,13 +394,13 @@ internal static class SteamShortcutRenamer
             var rootType = reader.ReadByte();
             if (rootType != ObjectType)
             {
-                throw new InvalidDataException("Некорректный shortcuts.vdf: отсутствует корневой объект.");
+                throw new InvalidDataException("Invalid shortcuts.vdf: the root object is missing.");
             }
 
             var rootName = ReadNullTerminatedString(reader);
             if (!string.Equals(rootName, "shortcuts", StringComparison.Ordinal))
             {
-                throw new InvalidDataException("Некорректный shortcuts.vdf: неожиданный корневой ключ.");
+                throw new InvalidDataException("Invalid shortcuts.vdf: unexpected root key.");
             }
 
             var root = ReadObject(reader);
@@ -483,7 +483,7 @@ internal static class SteamShortcutRenamer
                     ObjectType => ReadObject(reader),
                     StringType => ReadNullTerminatedString(reader),
                     Int32Type => reader.ReadInt32(),
-                    _ => throw new InvalidDataException($"Неподдерживаемый тип поля VDF: 0x{valueType:X2}.")
+                    _ => throw new InvalidDataException($"Unsupported VDF field type: 0x{valueType:X2}.")
                 };
 
                 result.Properties.Add(new VdfProperty(valueType, name, value));
@@ -510,7 +510,7 @@ internal static class SteamShortcutRenamer
                         writer.Write((int)property.Value);
                         break;
                     default:
-                        throw new InvalidDataException($"Неподдерживаемый тип поля VDF: 0x{property.Type:X2}.");
+                        throw new InvalidDataException($"Unsupported VDF field type: 0x{property.Type:X2}.");
                 }
             }
         }

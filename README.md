@@ -1,253 +1,253 @@
 # Steam Game Custom Status
 
-Windows-приложение для запуска в системном трее с расчетом на использование как `non-Steam game`, чтобы Steam показывал статус запущенной игры и позволял переименовать отображаемое название.
+A Windows app designed to run from the system tray and be used as a `non-Steam game`, so Steam can show the running-game status and let you rename the displayed title.
 
-Сейчас это tray-first WPF-утилита, собранная в один `exe`, с минималистичным окном управления в стиле Windows 11, реальным переименованием записи в Steam через `shortcuts.vdf` и созданием ярлыка на рабочем столе, который запускает приложение через `steam://rungameid/...`.
+At the moment, this is a tray-first WPF utility bundled into a single `exe`, with a minimal Windows 11-style control window, real Steam entry renaming through `shortcuts.vdf`, and desktop shortcut creation that launches the app through `steam://rungameid/...`.
 
-## Что реализовано
+## What is implemented
 
-- Приложение запускается как `WinExe` без автоматического показа главного окна.
-- После старта приложение живет в системном трее через `NotifyIcon`.
-- Одновременно поддерживается только один активный экземпляр приложения в трее.
-- В трее доступно контекстное меню:
-  - `Открыть`
-  - `Переименовать` — только если текущий `exe` найден в Steam как `non-Steam game`
-  - `Создать ярлык на рабочий стол` — только если текущий `exe` найден в Steam как `non-Steam game`
-  - `Выход`
-- Двойной клик по иконке в трее открывает окно управления.
-- Закрытие окна не завершает приложение, а скрывает его обратно в трей.
-- Окно приложения оформлено в темной минималистичной теме в стиле Windows 11.
-- В главном окне добавлен статус, найден ли текущий `exe` в Steam как `non-Steam game`.
-- В окне показываются два разных состояния:
-  - `Добавлен в Steam как non-Steam игра`
-  - `Не найден в Steam как non-Steam игра`
-- Для состояния, когда запись не найдена, показывается подсказка и отдельная кнопка открытия Steam для добавления игры.
-- Основные действия в окне (`Переименовать`, `Создать ярлык на рабочий стол`, `Скрыть в трей`) доступны только если текущий `exe` уже найден в Steam.
-- Подключена пользовательская иконка `Icon.ico`.
-- Иконка применяется и к самому `exe`, и к tray-иконке.
-- Настроен `single-file self-contained publish` под `win-x64`.
-- Реализовано реальное переименование `non-Steam` записи в Steam через `userdata/<steamid>/config/shortcuts.vdf`.
-- Перед изменением `shortcuts.vdf` создается резервная копия `.bak`.
-- Реализован поиск нужной записи по пути к текущему `exe`.
-- Добавлено создание ярлыка на рабочем столе, который запускает запись через `steam://rungameid/...`, а не напрямую через `exe`.
-- Добавлено открытие Steam с попыткой сразу перейти к добавлению `non-Steam game`, если текущий `exe` еще не найден в Steam.
-- Добавлен single-instance coordinator: новый запуск не оставляет вторую иконку в трее, а согласованно активирует или заменяет уже работающий экземпляр.
-- После успешного переименования приложение теперь автоматически перезапускает Steam, если в нем не запущена другая игра; если приложение было запущено через Steam, оно затем автоматически запускается заново уже с новым именем.
+- The app starts as a `WinExe` without automatically showing the main window.
+- After startup, the app lives in the system tray through `NotifyIcon`.
+- Only one active tray instance is supported at a time.
+- The tray context menu contains:
+  - `Open`
+  - `Rename` — only if the current `exe` is found in Steam as a `non-Steam game`
+  - `Create Desktop Shortcut` — only if the current `exe` is found in Steam as a `non-Steam game`
+  - `Exit`
+- Double-clicking the tray icon opens the control window.
+- Closing the window does not exit the app; it hides it back to the tray.
+- The app window uses a dark, minimal Windows 11-style theme.
+- The main window shows whether the current `exe` is found in Steam as a `non-Steam game`.
+- The window displays two different states:
+  - `Added to Steam as a non-Steam game`
+  - `Not found in Steam as a non-Steam game`
+- When the entry is not found, the window shows a hint and a separate button to open Steam for adding the game.
+- The main window actions (`Rename`, `Create Desktop Shortcut`, `Hide to Tray`) are available only if the current `exe` is already found in Steam.
+- A custom `Icon.ico` is connected.
+- The icon is applied both to the `exe` itself and to the tray icon.
+- `Single-file self-contained publish` for `win-x64` is configured.
+- Real renaming of the `non-Steam` Steam entry is implemented through `userdata/<steamid>/config/shortcuts.vdf`.
+- A `.bak` backup is created before changing `shortcuts.vdf`.
+- The correct entry is located by the path of the current `exe`.
+- Desktop shortcut creation was added so the shortcut launches the entry through `steam://rungameid/...` instead of starting the `exe` directly.
+- Opening Steam was added, with an attempt to jump directly to the `non-Steam game` add flow if the current `exe` is not yet found in Steam.
+- A single-instance coordinator was added: a new launch does not leave a second tray icon behind and instead consistently activates or replaces the already running instance.
+- After a successful rename, the app now automatically restarts Steam if no other game is currently running there; if the app was launched through Steam, it is then automatically launched again with the new name.
 
-## Интерфейс
+## Interface
 
-Главное окно сделано компактным и лаконичным:
+The main window is compact and minimal:
 
-- с компактными статус-карточками состояния регистрации в Steam
-- с кастомным заголовком и кнопкой закрытия, которая скрывает окно в трей
-- с акцентной кнопкой основного действия `Переименовать`, если приложение уже найдено в Steam
-- со вторичными действиями `Создать ярлык на рабочий стол` и `Скрыть в трей`, если приложение уже найдено в Steam
-- с отдельной кнопкой `Открыть Steam для добавления игры`, если приложение еще не найдено в Steam
+- compact status cards for the Steam registration state
+- a custom title bar and a close button that hides the window to the tray
+- a primary accent action button `Rename` when the app is already found in Steam
+- secondary actions `Create Desktop Shortcut` and `Hide to Tray` when the app is already found in Steam
+- a separate `Open Steam to Add Game` button when the app is not yet found in Steam
 
-Текущий размер окна:
+Current window size:
 
 ```text
 380 x 420
 ```
 
-## Как это работает
+## How it works
 
-### Переименование
+### Renaming
 
-Приложение:
+The app:
 
-1. Определяет путь к текущему запущенному `exe`.
-2. Находит папку Steam через реестр Windows.
-3. Ищет файлы:
+1. Determines the path to the current running `exe`.
+2. Finds the Steam folder through the Windows registry.
+3. Looks for files:
 
 ```text
 Steam\userdata\<steamid>\config\shortcuts.vdf
 ```
 
-4. Читает бинарный VDF.
-5. Находит `non-Steam` запись, где поле `Exe` совпадает с путем к текущему `exe`.
-6. Меняет `AppName`.
-7. Сохраняет файл обратно в корректном формате `shortcuts.vdf`.
+4. Reads the binary VDF.
+5. Finds the `non-Steam` entry whose `Exe` field matches the path to the current `exe`.
+6. Changes `AppName`.
+7. Saves the file back in the correct `shortcuts.vdf` format.
 
-### Ярлык на рабочем столе
+### Desktop shortcut
 
-Кнопка `Создать ярлык на рабочий стол` создает `.url` на рабочем столе с адресом вида:
+The `Create Desktop Shortcut` button creates a `.url` file on the desktop with an address like this:
 
 ```text
 steam://rungameid/<id>
 ```
 
-Такой ярлык запускает приложение через Steam. Это важно, потому что при прямом запуске `exe` не из Steam статус `non-Steam game` обычно не показывается.
+This shortcut launches the app through Steam. That matters because when the `exe` is started directly outside Steam, the `non-Steam game` status is usually not shown.
 
-### Проверка наличия в Steam
+### Steam presence check
 
-При открытии главного окна приложение автоматически проверяет, найден ли текущий `exe` среди `non-Steam` записей Steam.
+When the main window is opened, the app automatically checks whether the current `exe` exists among Steam `non-Steam` entries.
 
-Если запись найдена:
+If the entry is found:
 
-- показывается зеленый статус `Добавлен в Steam как non-Steam игра`;
-- дополнительно выводится текущее имя записи в Steam;
-- доступны действия `Переименовать`, `Создать ярлык на рабочий стол` и `Скрыть в трей`;
-- в tray-меню доступны `Переименовать` и `Создать ярлык на рабочий стол`.
+- a green `Added to Steam as a non-Steam game` status is shown;
+- the current Steam entry name is also displayed;
+- the actions `Rename`, `Create Desktop Shortcut`, and `Hide to Tray` are available;
+- the tray menu shows `Rename` and `Create Desktop Shortcut`.
 
-Если запись не найдена:
+If the entry is not found:
 
-- показывается предупреждающий статус `Не найден в Steam как non-Steam игра`;
-- выводится подсказка, что нужно добавить именно опубликованный `exe`, а не Debug-сборку или копию из другой папки;
-- кнопки переименования и создания ярлыка скрываются;
-- остается кнопка `Открыть Steam для добавления игры`;
-- в tray-меню скрываются `Переименовать` и `Создать ярлык на рабочий стол`.
+- a warning `Not found in Steam as a non-Steam game` status is shown;
+- a hint explains that you need to add the published `exe`, not a Debug build or a copy from another folder;
+- the rename and shortcut buttons are hidden;
+- the `Open Steam to Add Game` button remains available;
+- `Rename` and `Create Desktop Shortcut` are hidden in the tray menu.
 
-Кнопка `Открыть Steam для добавления игры`:
+The `Open Steam to Add Game` button:
 
-- сначала пытается открыть Steam сразу на сценарии добавления `non-Steam game`;
-- если это не сработает, просто открывает Steam;
-- если Steam не удалось открыть автоматически, показывает путь к текущему `exe`, который нужно добавить вручную.
+- first tries to open Steam directly in the `non-Steam game` add flow;
+- if that does not work, it simply opens Steam;
+- if Steam cannot be opened automatically, it shows the path to the current `exe`, which you can add manually.
 
-## Что уже можно делать
+## What you can already do
 
-### 1. Добавить приложение в Steam
+### 1. Add the app to Steam
 
-Добавь в Steam опубликованный `exe` как `non-Steam game`.
+Add the published `exe` to Steam as a `non-Steam game`.
 
-Рекомендуемый файл:
-
-```text
-C:\Vivoderin\SteamGameCustomStatus\bin\Release\net10.0-windows\win-x64\publish\SteamGameCustomStatus.exe
-```
-
-### 2. Переименовать отображаемое имя
-
-- Запусти приложение.
-- Убедись, что в окне показывается статус `Добавлен в Steam как non-Steam игра`.
-- Нажми `Переименовать` в окне или в tray-меню.
-- Введи новое имя.
-- Если в Steam не запущена другая игра, приложение само перезапустит Steam для применения нового имени.
-- Если приложение было запущено через Steam, после перезапуска Steam оно автоматически откроется заново уже с новым именем.
-- Если в Steam в этот момент запущена другая игра, автоматический перезапуск Steam будет пропущен, и его нужно будет сделать позже вручную.
-
-### 3. Создать ярлык на рабочем столе
-
-- Запусти приложение.
-- Убедись, что в окне показывается статус `Добавлен в Steam как non-Steam игра`.
-- Нажми `Создать ярлык на рабочий стол`.
-- На рабочем столе появится `.url`, который нужно использовать для запуска через Steam.
-
-### 4. Если приложение еще не добавлено в Steam
-
-- Запусти приложение.
-- Если увидишь статус `Не найден в Steam как non-Steam игра`, нажми `Открыть Steam для добавления игры`.
-- Если Steam не откроет нужное окно автоматически, в самом Steam выбери `Игры → Добавить стороннюю игру в мою библиотеку`.
-- Добавь именно опубликованный файл:
+Recommended file:
 
 ```text
 C:\Vivoderin\SteamGameCustomStatus\bin\Release\net10.0-windows\win-x64\publish\SteamGameCustomStatus.exe
 ```
 
-- После добавления снова открой главное окно приложения: статус должен переключиться на найденную запись.
+### 2. Rename the displayed title
 
-## Поведение после изменений
+- Launch the app.
+- Make sure the window shows the status `Added to Steam as a non-Steam game`.
+- Click `Rename` in the window or in the tray menu.
+- Enter the new name.
+- If no other game is currently running in Steam, the app will restart Steam automatically to apply the new name.
+- If the app was launched through Steam, after Steam restarts it will open again automatically with the new name.
+- If another game is running in Steam at that moment, automatic Steam restart will be skipped and you will need to do it manually later.
 
-- После изменения `shortcuts.vdf` приложение пытается автоматически перезапустить Steam.
-- Автоматический перезапуск выполняется только если в Steam не запущена другая игра.
-- Если запущена именно эта `non-Steam` игра, Steam все равно будет перезапущен.
-- Если приложение сейчас запущено не через Steam, перезапускается только Steam, само приложение продолжает работать.
-- Если приложение сейчас запущено через Steam, текущий экземпляр закрывается, Steam перезапускается, а затем приложение запускается заново через `steam://rungameid/...`.
-- Если удалить и заново добавить `non-Steam` запись в Steam, идентификатор `rungameid` может измениться.
-- В таком случае старый ярлык на рабочем столе придется создать заново.
+### 3. Create a desktop shortcut
 
-## Поведение single-instance
+- Launch the app.
+- Make sure the window shows the status `Added to Steam as a non-Steam game`.
+- Click `Create Desktop Shortcut`.
+- A `.url` file will appear on the desktop; use it to launch through Steam.
 
-Приложение теперь не должно оставлять несколько иконок в трее.
+### 4. If the app has not been added to Steam yet
 
-Правила такие:
+- Launch the app.
+- If you see the status `Not found in Steam as a non-Steam game`, click `Open Steam to Add Game`.
+- If Steam does not open the required window automatically, in Steam choose `Games → Add a Non-Steam Game to My Library`.
+- Add exactly this published file:
 
-- если уже запущен обычный экземпляр и запускается новый обычный экземпляр — приоритет у нового, старый завершится;
-- если уже запущен обычный экземпляр и запускается экземпляр через Steam — приоритет у нового Steam-экземпляра, старый завершится;
-- если уже запущен экземпляр через Steam и запускается обычный экземпляр — сохраняется текущий Steam-экземпляр, а новый запуск завершается;
-- если уже запущен экземпляр через Steam и запускается новый экземпляр через Steam — приоритет у нового Steam-экземпляра.
+```text
+C:\Vivoderin\SteamGameCustomStatus\bin\Release\net10.0-windows\win-x64\publish\SteamGameCustomStatus.exe
+```
 
-За счет этого в приоритете остается процесс, который был реально запущен Steam и на котором должен держаться статус `non-Steam game`.
+- After adding it, open the app main window again: the status should switch to the found entry state.
 
-## Ограничения
+## Behavior after changes
 
-- Приложение работает только с записью `non-Steam`, у которой `Exe` совпадает с путем к текущему запущенному `exe`.
-- Если в Steam добавлен другой путь, например Debug-сборка или копия файла в другой папке, приложение не найдет нужную запись.
-- Прямой запуск `exe` вне Steam не дает статуса `non-Steam game`.
-- Для статуса нужно запускать либо из библиотеки Steam, либо через созданный ярлык `steam://rungameid/...`.
-- Сейчас создается `.url`-ярлык. Этого достаточно для запуска через Steam.
-- Автозапуск с Windows пока не реализован.
-- Полностью кастомное контекстное меню на WPF вместо `ContextMenuStrip` пока не реализовано.
+- After changing `shortcuts.vdf`, the app tries to restart Steam automatically.
+- Automatic restart is performed only if no other game is currently running in Steam.
+- If this exact `non-Steam` game is the one currently running, Steam will still be restarted.
+- If the app is currently running outside Steam, only Steam is restarted and the app itself keeps running.
+- If the app is currently running through Steam, the current instance closes, Steam restarts, and then the app is launched again through `steam://rungameid/...`.
+- If you remove and add the `non-Steam` entry in Steam again, the `rungameid` identifier may change.
+- In that case, the old desktop shortcut will need to be recreated.
 
-## Текущий стек
+## Single-instance behavior
+
+The app should no longer leave multiple tray icons behind.
+
+The rules are:
+
+- if a normal instance is already running and a new normal instance starts, the new one takes priority and the old one exits;
+- if a normal instance is already running and a Steam-launched instance starts, the new Steam-launched instance takes priority and the old one exits;
+- if a Steam-launched instance is already running and a normal instance starts, the current Steam-launched instance is kept and the new launch exits;
+- if a Steam-launched instance is already running and a new Steam-launched instance starts, the new Steam-launched instance takes priority.
+
+Because of that, the process that was actually launched by Steam stays preferred, which is the one that should hold the `non-Steam game` status.
+
+## Limitations
+
+- The app only works with the `non-Steam` entry whose `Exe` matches the path to the current running `exe`.
+- If Steam contains a different path, for example a Debug build or a copy of the file in another folder, the app will not find the correct entry.
+- Starting the `exe` directly outside Steam does not give a `non-Steam game` status.
+- To get the status, launch either from the Steam library or through the created `steam://rungameid/...` shortcut.
+- At the moment, a `.url` shortcut is created. That is enough to launch through Steam.
+- Autostart with Windows is not implemented yet.
+- A fully custom WPF context menu instead of `ContextMenuStrip` is not implemented yet.
+
+## Current stack
 
 - `.NET 10`
 - `WPF`
-- `Windows Forms NotifyIcon` для интеграции с треем
+- `Windows Forms NotifyIcon` for tray integration
 
-## Структура текущей реализации
+## Current implementation structure
 
-- [App.xaml](C:\Vivoderin\SteamGameCustomStatus\App.xaml) - описание приложения без `StartupUri`
-- [App.xaml.cs](C:\Vivoderin\SteamGameCustomStatus\App.xaml.cs) - tray-иконка, контекстное меню, динамическая видимость tray-действий и старт приложения
-- [MainWindow.xaml](C:\Vivoderin\SteamGameCustomStatus\MainWindow.xaml) - минималистичное окно управления со статусом регистрации в Steam
-- [MainWindow.xaml.cs](C:\Vivoderin\SteamGameCustomStatus\MainWindow.xaml.cs) - логика скрытия окна, обновления статуса и переключения доступных действий
-- [RenameShortcutWorkflow.cs](C:\Vivoderin\SteamGameCustomStatus\RenameShortcutWorkflow.cs) - workflow переименования
-- [SteamRestartWorkflow.cs](C:\Vivoderin\SteamGameCustomStatus\SteamRestartWorkflow.cs) - workflow безопасного применения нового имени через остановку и повторный запуск Steam
-- [DesktopShortcutWorkflow.cs](C:\Vivoderin\SteamGameCustomStatus\DesktopShortcutWorkflow.cs) - workflow создания ярлыка на рабочем столе
-- [OpenSteamAddGameWorkflow.cs](C:\Vivoderin\SteamGameCustomStatus\OpenSteamAddGameWorkflow.cs) - workflow открытия Steam для добавления `non-Steam game`
-- [SteamShortcutRenamer.cs](C:\Vivoderin\SteamGameCustomStatus\SteamShortcutRenamer.cs) - чтение, поиск, изменение и запись `shortcuts.vdf`
-- [SteamGameCustomStatus.csproj](C:\Vivoderin\SteamGameCustomStatus\SteamGameCustomStatus.csproj) - настройки WPF, иконки и single-file publish
-- [Icon.ico](C:\Vivoderin\SteamGameCustomStatus\Icon.ico) - иконка приложения
+- [App.xaml](C:\Vivoderin\SteamGameCustomStatus\App.xaml) - app definition without `StartupUri`
+- [App.xaml.cs](C:\Vivoderin\SteamGameCustomStatus\App.xaml.cs) - tray icon, context menu, dynamic tray action visibility, and app startup
+- [MainWindow.xaml](C:\Vivoderin\SteamGameCustomStatus\MainWindow.xaml) - minimal control window with Steam registration status
+- [MainWindow.xaml.cs](C:\Vivoderin\SteamGameCustomStatus\MainWindow.xaml.cs) - window hiding logic, status refresh, and available-action switching
+- [RenameShortcutWorkflow.cs](C:\Vivoderin\SteamGameCustomStatus\RenameShortcutWorkflow.cs) - rename workflow
+- [SteamRestartWorkflow.cs](C:\Vivoderin\SteamGameCustomStatus\SteamRestartWorkflow.cs) - workflow for safely applying the new name by stopping and relaunching Steam
+- [DesktopShortcutWorkflow.cs](C:\Vivoderin\SteamGameCustomStatus\DesktopShortcutWorkflow.cs) - desktop shortcut workflow
+- [OpenSteamAddGameWorkflow.cs](C:\Vivoderin\SteamGameCustomStatus\OpenSteamAddGameWorkflow.cs) - workflow for opening Steam to add a `non-Steam game`
+- [SteamShortcutRenamer.cs](C:\Vivoderin\SteamGameCustomStatus\SteamShortcutRenamer.cs) - reading, searching, changing, and writing `shortcuts.vdf`
+- [SteamGameCustomStatus.csproj](C:\Vivoderin\SteamGameCustomStatus\SteamGameCustomStatus.csproj) - WPF, icon, and single-file publish settings
+- [Icon.ico](C:\Vivoderin\SteamGameCustomStatus\Icon.ico) - app icon
 
-## Сборка
+## Build
 
-Обычная сборка:
+Regular build:
 
 ```powershell
 dotnet build
 ```
 
-Publish в один `exe`:
+Publish into a single `exe`:
 
 ```powershell
 dotnet publish -c Release
 ```
 
-Проверенный результат публикации:
+Verified publish result:
 
 - `Release`
 - `win-x64`
 - `single-file`
 - `self-contained`
 
-## Где лежит готовый exe
+## Where the built exe is located
 
-После `publish` итоговый файл находится по пути:
+After `publish`, the final file is located at:
 
 ```text
 C:\Vivoderin\SteamGameCustomStatus\bin\Release\net10.0-windows\win-x64\publish\SteamGameCustomStatus.exe
 ```
 
-В текущем `publish` также создается файл отладки:
+The current `publish` also creates a debug file:
 
 ```text
 C:\Vivoderin\SteamGameCustomStatus\bin\Release\net10.0-windows\win-x64\publish\SteamGameCustomStatus.pdb
 ```
 
-## Почему exe большой
+## Why the exe is large
 
-Сейчас приложение публикуется как:
+Right now the app is published as:
 
 - `single-file`
 - `self-contained`
-- под `win-x64`
+- for `win-x64`
 
-Из-за этого в один файл упаковывается не только код приложения, но и .NET runtime. Для WPF это дает большой размер итогового `exe`.
+Because of that, the single output file contains not only the app code but also the .NET runtime. For WPF, that results in a large final `exe` size.
 
-## Следующие логичные шаги
+## Next logical steps
 
-- Добавить явный выбор найденной `non-Steam` записи, если совпадений несколько.
-- Добавить показ текущего `AppName` и `rungameid` прямо в UI.
-- Добавить создание `.lnk` как альтернативы `.url`.
-- Добавить настройки и сохранение пользовательского состояния.
-- Добавить автозапуск с Windows.
+- Add explicit selection of the found `non-Steam` entry if multiple matches exist.
+- Add display of the current `AppName` and `rungameid` directly in the UI.
+- Add `.lnk` creation as an alternative to `.url`.
+- Add settings and persistence for user state.
+- Add Windows autostart.

@@ -40,8 +40,8 @@ internal static class SteamRestartWorkflow
 
             return RenameAndRestartResult.Warning(
                 renameResult.Message +
-                "\n\nSteam сейчас не был перезапущен, потому что в нем запущена другая игра. " +
-                "Закрой эту игру и перезапусти Steam позже, чтобы увидеть новое имя.");
+                "\n\nSteam was not restarted now because another game is currently running in it. " +
+                "Close that game and restart Steam later to see the new name.");
         }
 
         if (!TryStartHelperProcess(
@@ -50,17 +50,17 @@ internal static class SteamRestartWorkflow
                 waitForExitProcessId: isSteamLaunch ? Environment.ProcessId : null))
         {
             return RenameAndRestartResult.Failure(
-                "Не удалось запустить автоматическое применение нового имени. Попробуй еще раз.");
+                "Could not start the automatic process to apply the new name. Try again.");
         }
 
         return isSteamLaunch
             ? RenameAndRestartResult.Success(
-                "Steam будет автоматически закрыт, затем запись будет переименована, после чего Steam запустится снова. " +
-                "Приложение откроется заново через Steam уже с новым именем.",
+                "Steam will close automatically, then the entry will be renamed, and then Steam will start again. " +
+                "The app will relaunch through Steam with the new name.",
                 shouldExitApplication: true)
             : RenameAndRestartResult.Success(
-                "Steam будет автоматически закрыт, затем запись будет переименована, после чего Steam запустится снова. " +
-                "Текущее приложение продолжит работать без перезапуска.",
+                "Steam will close automatically, then the entry will be renamed, and then Steam will start again. " +
+                "The current app instance will keep running without restarting.",
                 shouldExitApplication: false);
     }
 

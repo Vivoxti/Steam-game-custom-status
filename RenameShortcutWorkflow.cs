@@ -16,7 +16,7 @@ internal static class RenameShortcutWorkflow
 
         var currentName = lookupResult.CurrentName ?? "Steam Game Custom Status";
         var newName = Interaction.InputBox(
-            "Введите новое отображаемое имя non-Steam игры в Steam.",
+            "Enter a new display name for the non-Steam game in Steam.",
             "Steam Game Custom Status",
             currentName);
 
@@ -28,7 +28,7 @@ internal static class RenameShortcutWorkflow
         newName = newName.Trim();
         if (string.Equals(newName, currentName, StringComparison.Ordinal))
         {
-            ShowMessage(owner, "Название не изменилось.", Wpf.MessageBoxImage.Information);
+            ShowMessage(owner, "The name was not changed.", Wpf.MessageBoxImage.Information);
             return;
         }
 
