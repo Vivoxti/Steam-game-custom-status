@@ -164,7 +164,9 @@ public partial class MainWindow : Wpf.Window
             return;
         }
 
+        var currentOpacity = InlineMessageCard.Opacity;
         StopInlineMessageAnimations();
+        InlineMessageCard.Opacity = currentOpacity;
         var fadeOutAnimation = new Animation.DoubleAnimation(0, InlineMessageFadeOutDuration)
         {
             EasingFunction = new Animation.SineEase { EasingMode = Animation.EasingMode.EaseInOut }

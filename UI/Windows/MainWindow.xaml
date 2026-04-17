@@ -144,7 +144,7 @@
                            Text="Steam Game Custom Status" />
             </DockPanel>
 
-            <!-- Content -->
+            <!-- Content (top) -->
             <StackPanel Grid.Row="1"
                         Margin="28,12,28,0"
                         VerticalAlignment="Top">
@@ -210,9 +210,34 @@
                                    TextWrapping="Wrap" />
                     </StackPanel>
                 </Border>
+            </StackPanel>
+
+            <!-- Bottom area: inline message + buttons -->
+            <StackPanel Grid.Row="2"
+                        Margin="28,0,28,14"
+                        VerticalAlignment="Bottom">
+
+                <Border x:Name="InlineMessageCard"
+                        Margin="0,0,0,10"
+                        MaxHeight="64"
+                        Padding="12,8"
+                        Background="{StaticResource SuccessBg}"
+                        BorderBrush="{StaticResource SuccessBorder}"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Opacity="0"
+                        ToolTipService.ShowDuration="60000"
+                        Visibility="Collapsed">
+                    <TextBlock x:Name="InlineMessageText"
+                               FontFamily="Segoe UI Variable Display, Segoe UI"
+                               FontSize="12"
+                               Foreground="{StaticResource SuccessText}"
+                               MaxHeight="46"
+                               TextTrimming="WordEllipsis"
+                               TextWrapping="Wrap" />
+                </Border>
 
                 <StackPanel x:Name="RegisteredActionsPanel"
-                            Margin="0,18,0,0"
                             Visibility="Collapsed">
                     <Button Content="Rename"
                             Style="{StaticResource AccentBtn}"
@@ -230,7 +255,6 @@
                 </StackPanel>
 
                 <StackPanel x:Name="MissingActionsPanel"
-                            Margin="0,18,0,0"
                             Visibility="Collapsed">
                     <Button x:Name="OpenSteamAddGameButton"
                             Content="Open Steam to Add Game"
@@ -238,27 +262,6 @@
                             Click="OpenSteamAddGame_Click" />
                 </StackPanel>
             </StackPanel>
-
-            <Border x:Name="InlineMessageCard"
-                    Grid.Row="2"
-                    Margin="28,10,28,14"
-                    MaxHeight="64"
-                    Padding="12,8"
-                    Background="{StaticResource SuccessBg}"
-                    BorderBrush="{StaticResource SuccessBorder}"
-                    BorderThickness="1"
-                    CornerRadius="8"
-                    Opacity="0"
-                    ToolTipService.ShowDuration="60000"
-                    Visibility="Collapsed">
-                <TextBlock x:Name="InlineMessageText"
-                           FontFamily="Segoe UI Variable Display, Segoe UI"
-                           FontSize="12"
-                           Foreground="{StaticResource SuccessText}"
-                           MaxHeight="46"
-                           TextTrimming="WordEllipsis"
-                           TextWrapping="Wrap" />
-            </Border>
         </Grid>
     </Border>
 </Window>
