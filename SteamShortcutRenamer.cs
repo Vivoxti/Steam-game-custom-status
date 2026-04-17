@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Text;
 using Microsoft.Win32;
@@ -336,8 +337,56 @@ internal static class SteamShortcutRenamer
 
     private static void CreateBackup(string shortcutFile)
     {
-        var backupPath = shortcutFile + "." + DateTime.Now.ToString("yyyyMMddHHmmss") + ".bak";
+        var backupPath = shortcutFile + ".bak";
+        DeleteLegacyBackups(shortcutFile, backupPath);
+
+        if (File.Exists(backupPath))
+        {
+            File.SetAttributes(backupPath, FileAttributes.Normal);
+            File.Delete(backupPath);
+        }
+
         File.Copy(shortcutFile, backupPath, overwrite: false);
+    }
+
+    private static void DeleteLegacyBackups(string shortcutFile, string currentBackupPath)
+    {
+        var directory = Path.GetDirectoryName(shortcutFile);
+        var fileName = Path.GetFileName(shortcutFile);
+        if (string.IsNullOrWhiteSpace(directory) || string.IsNullOrWhiteSpace(fileName) || !Directory.Exists(directory))
+        {
+            return;
+        }
+
+        foreach (var backupFile in Directory.EnumerateFiles(directory, fileName + ".*.bak"))
+        {
+            if (string.Equals(backupFile, currentBackupPath, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var backupFileName = Path.GetFileName(backupFile);
+            var timestampStartIndex = fileName.Length + 1;
+            var timestampLength = backupFileName.Length - timestampStartIndex - ".bak".Length;
+            if (timestampLength <= 0)
+            {
+                continue;
+            }
+
+            var timestamp = backupFileName.Substring(timestampStartIndex, timestampLength);
+            if (!DateTime.TryParseExact(
+                    timestamp,
+                    "yyyyMMddHHmmss",
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.None,
+                    out _))
+            {
+                continue;
+            }
+
+            File.SetAttributes(backupFile, FileAttributes.Normal);
+            File.Delete(backupFile);
+        }
     }
 
     internal sealed record RenameLookupResult(bool Success, string Message, string? CurrentName)
