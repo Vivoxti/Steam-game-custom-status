@@ -12,7 +12,9 @@ Internal reference for repository-aware assistance. This file is the canonical d
 - Only one active tray instance should survive at a time.
 - Steam-launched instances have priority over normal launches when single-instance decisions are made.
 - Desktop shortcuts must launch through `steam://rungameid/...`, not by starting the executable directly.
-- After rename, the app may restart Steam automatically when it is safe to do so.
+- After rename, the app may restart Steam automatically when it is safe to do so, using a helper-mode relaunch flow.
+- The UI exposes Steam registration state, the current Steam name, and an Active/Inactive indicator for Steam presence.
+- A `Launch via Steam` action is available when the shortcut exists but the current instance was started outside Steam.
 - User-facing instructions should prefer the published executable path, not Debug output paths.
 
 ## Do not break
@@ -40,7 +42,9 @@ This keeps the instance actually launched by Steam preferred when applicable.
 - Match the Steam shortcut by the current executable path.
 - Keep compatibility with `userdata/<steamid>/config/shortcuts.vdf`.
 - Create a `.bak` backup before writing `shortcuts.vdf`.
+- Keep the current backup behavior that replaces `shortcuts.vdf.bak` and cleans up legacy timestamped backup files.
 - Keep desktop shortcut generation based on `steam://rungameid/<id>`.
+- Preserve the `Launch via Steam` flow based on `steam://rungameid/<id>`.
 - Prefer the published executable path in instructions and messages when referencing what should be added to Steam.
 
 ## Core runtime behavior
@@ -50,15 +54,20 @@ This keeps the instance actually launched by Steam preferred when applicable.
 - The app is a `WinExe` and does not rely on `StartupUri`.
 - `NotifyIcon` is used for tray integration.
 - The tray menu contains `Open`, `Exit`, and context-dependent Steam actions.
+- When the current executable is registered in Steam, the tray can expose `Rename`, `Create Desktop Shortcut`, and optionally `Launch via Steam`.
 - Double-clicking the tray icon opens the control window.
 - When the main window is opened, the current Steam registration state is refreshed.
+- Helper-mode launches used for rename/restart should exit early from normal startup handling.
 
 ### Main window behavior
 
 - The window shows whether the current executable is registered in Steam as a non-Steam game.
 - When found, the UI shows the current Steam entry name and enables `Rename` and `Create Desktop Shortcut`.
+- When found outside a Steam launch, the UI also exposes `Launch via Steam`.
 - When not found, the rename and shortcut actions are hidden and the user is guided toward adding the published executable to Steam.
-- The current compact window size is approximately `380 x 400`.
+- The UI shows a green/red Steam activity indicator with explanatory tooltip text.
+- The missing-state action opens Steam to the add-game flow and surfaces the current executable path for manual selection.
+- The current compact window size is approximately `380 x 444`.
 - The window is borderless, dark themed, and not shown in the taskbar.
 - Inline success and warning messages are used for some actions while the window is open.
 
@@ -70,6 +79,10 @@ Matching rule:
 
 - only the entry whose `Exe` value matches the path to the current running executable is considered the correct one;
 - Debug builds or copies from a different folder will not match the published entry.
+
+Steam activity rule:
+
+- the shortcut is considered active when either the app was launched through Steam or Steam's `RunningAppID` matches the matched shortcut `appid`.
 
 ### Rename flow
 
@@ -84,6 +97,12 @@ Rename behavior is implemented around the following flow:
 7. Create a `.bak` backup.
 8. Save the file back in Steam-compatible format.
 
+Lookup and write notes:
+
+- the parser reads Steam's binary VDF object structure directly;
+- path normalization trims surrounding quotes and launch arguments before comparing the executable path;
+- a rename only touches entries whose `Exe` field resolves to the current executable path.
+
 ### Steam restart behavior after rename
 
 - After a successful rename, the app tries to apply the change immediately.
@@ -93,13 +112,22 @@ Rename behavior is implemented around the following flow:
 - If the app is running outside Steam, only Steam is restarted and the app keeps running.
 - If the app is running through Steam, the current instance closes, Steam restarts, and the app is launched again through `steam://rungameid/...`.
 - If another game is running, automatic restart is skipped and the rename must be applied by a later manual Steam restart.
+- The restart is coordinated by relaunching the same executable in hidden helper mode with internal arguments such as `--steam-restart-helper`, `--new-name`, and optional relaunch/wait parameters.
 
 ### Desktop shortcut behavior
 
 - Desktop shortcut creation currently produces a `.url` file.
 - The shortcut target is a `steam://rungameid/<id>` URL.
 - The generated shortcut uses the current executable as its icon source.
+- The shortcut file name is based on the current executable file name and sanitized for Windows file-system rules.
+- If a `.url` with the same name already exists and points to the same `steam://rungameid/...` target, the workflow reports success without creating a duplicate.
 - This matters because starting the executable directly outside Steam usually does not produce the intended non-Steam game status.
+
+### Launch-via-Steam behavior
+
+- The `Launch via Steam` action is only relevant when the current executable is already registered and the current instance was started outside Steam.
+- It launches `steam://rungameid/<id>` for the current shortcut and then exits the current instance so Steam owns the running session.
+- Failures in this flow are surfaced as inline warnings in the main window.
 
 ### Open-Steam behavior
 
@@ -108,6 +136,18 @@ When the app is not yet found in Steam:
 - it first tries to open Steam directly into the add-non-Steam-game flow;
 - if that fails, it falls back to opening Steam normally;
 - if Steam cannot be opened automatically, the app shows the current executable path for manual addition.
+
+### Single-instance implementation notes
+
+- Single-instance coordination is implemented with a per-user local mutex and a named pipe server/client exchange.
+- New launches send a small JSON startup message describing whether they were Steam-launched.
+- The existing instance either activates itself or yields ownership so the new instance can become primary.
+- Steam-launched instances intentionally win over normal launches.
+
+### Launch-context detection notes
+
+- Steam launch detection walks the parent-process chain up to a limited depth.
+- It uses `NtQueryInformationProcess` to read parent process IDs and checks whether any ancestor process is `steam`.
 
 ## Build and publish facts
 
@@ -135,12 +175,12 @@ bin\Release\net10.0-windows\win-x64\publish\SteamGameCustomStatus.exe
 
 ## File map
 
-- `App.xaml` / `App.xaml.cs` — startup, tray icon, lifecycle, dynamic tray actions
-- `UI/Windows/MainWindow.xaml` / `UI/Windows/MainWindow.xaml.cs` — control window, status refresh, inline messages, and hide-to-tray behavior
+- `App.xaml` / `App.xaml.cs` — startup, tray icon, lifecycle, dynamic tray actions, and Steam relaunch exit handling
+- `UI/Windows/MainWindow.xaml` / `UI/Windows/MainWindow.xaml.cs` — control window, status refresh, Steam activity indicator, inline messages, and hide-to-tray behavior
 - `UI/Dialogs/RenameDialog.xaml` / `UI/Dialogs/RenameDialog.xaml.cs` — rename entry dialog
-- `Steam/SteamShortcutRenamer.cs` — `shortcuts.vdf` parsing, lookup, backup, update, desktop shortcut creation, and open-Steam helpers
+- `Steam/SteamShortcutRenamer.cs` — `shortcuts.vdf` parsing, lookup, backup, update, activity detection, desktop shortcut creation, and open-Steam helpers
 - `Workflows/RenameShortcutWorkflow.cs` — rename workflow orchestration
-- `Workflows/SteamRestartWorkflow.cs` — safe Steam restart and optional relaunch flow
+- `Workflows/SteamRestartWorkflow.cs` — safe Steam restart and optional relaunch flow, including hidden helper mode
 - `Workflows/DesktopShortcutWorkflow.cs` — `steam://rungameid/...` desktop shortcut workflow
 - `Workflows/OpenSteamAddGameWorkflow.cs` — opening Steam to add a non-Steam game
 - `Infrastructure/SingleInstanceCoordinator.cs` — single-instance rules and instance priority handling
@@ -165,6 +205,7 @@ bin\Release\net10.0-windows\win-x64\publish\SteamGameCustomStatus.exe
 - Desktop shortcut creation is currently `.url`-based, not `.lnk`-based.
 - Windows autostart is not implemented.
 - The tray interaction currently relies on `ContextMenuStrip`, not a custom WPF tray menu.
+- Steam activity detection depends on Steam exposing the expected `RunningAppID` registry value or on the app being started through Steam.
 
 ## Workflow expectations for future changes
 
@@ -177,7 +218,7 @@ bin\Release\net10.0-windows\win-x64\publish\SteamGameCustomStatus.exe
 ## Recommended future improvements
 
 - Add explicit selection if multiple Steam shortcut candidates ever need to be supported.
-- Display the current `AppName` and `rungameid` more explicitly in the UI.
+- Display the current `AppName`, `appid`, and `rungameid` more explicitly in the UI.
 - Add `.lnk` creation as an alternative to `.url`.
 - Add settings persistence and Windows autostart if the product direction requires it.
 
