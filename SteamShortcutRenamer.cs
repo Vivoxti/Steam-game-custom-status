@@ -163,10 +163,23 @@ internal static class SteamShortcutRenamer
             "IconIndex=0"
         };
 
+        if (File.Exists(shortcutPath))
+        {
+            var existingLines = File.ReadAllLines(shortcutPath);
+            var existingUrlLine = existingLines.FirstOrDefault(line => line.StartsWith("URL=", StringComparison.OrdinalIgnoreCase));
+
+            if (string.Equals(existingUrlLine, $"URL={url}", StringComparison.OrdinalIgnoreCase))
+            {
+                return OperationResult.Successful("Desktop shortcut is already on the Desktop.");
+            }
+
+            return OperationResult.Failure(
+                "A file with the same name already exists on the Desktop.");
+        }
+
         File.WriteAllLines(shortcutPath, lines, Encoding.ASCII);
 
-        return OperationResult.Successful(
-            $"Desktop shortcut created.\n\nPath: {shortcutPath}\nURL: {url}");
+        return OperationResult.Successful("Desktop shortcut created.");
     }
 
     public static OperationResult OpenSteamForAddingCurrentExecutable()

@@ -112,8 +112,13 @@ public partial class App : Wpf.Application
 
     private void RunCreateDesktopShortcutWorkflow()
     {
-        _mainWindow ??= new MainWindow();
-        DesktopShortcutWorkflow.Run(_mainWindow);
+        var result = SteamShortcutRenamer.CreateDesktopShortcutForCurrentShortcut();
+        if (!result.Success)
+        {
+            ShowMainWindow();
+            _mainWindow?.ShowInlineMessage(result.Message, isWarning: true);
+        }
+
         RefreshTrayMenuState();
     }
 
