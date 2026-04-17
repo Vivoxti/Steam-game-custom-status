@@ -21,8 +21,8 @@
         <EmbeddedResource Include="Assets\IconInactive.ico">
             <LogicalName>SteamGameCustomStatus.Assets.IconInactive.ico</LogicalName>
         </EmbeddedResource>
-        <EmbeddedResource Include="Assets\GameCatalogs\NintendoSwitchTop100.json">
-            <LogicalName>SteamGameCustomStatus.Assets.GameCatalogs.NintendoSwitchTop100.json</LogicalName>
+        <EmbeddedResource Include="Assets\GameCatalogs\ConsoleExclusivesTop200.json">
+            <LogicalName>SteamGameCustomStatus.Assets.GameCatalogs.ConsoleExclusivesTop200.json</LogicalName>
         </EmbeddedResource>
     </ItemGroup>
 

@@ -103,7 +103,7 @@ Rename behavior is implemented around the following flow:
 Rename dialog UX notes:
 
 - the rename dialog keeps manual free-text entry as the primary action;
-- while typing, it can surface offline game-name suggestions from an embedded curated Nintendo Switch catalog;
+- while typing, it can surface offline game-name suggestions from an embedded curated multi-console exclusives catalog spanning current platforms back to the PS3/Xbox 360 era;
 - suggestions are assistive only and must never block custom naming or successful rename submission;
 - the suggestion layer is intentionally extensible so richer online or cached providers can be added later without rewriting Steam rename logic.
 

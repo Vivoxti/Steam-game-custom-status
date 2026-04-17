@@ -1,8 +1,3 @@
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-
 namespace SteamGameCustomStatus.Suggestions;
 
 internal sealed class GameNameSuggestionService
@@ -16,8 +11,8 @@ internal sealed class GameNameSuggestionService
 
     public static GameNameSuggestionService Default { get; } = new([
         new EmbeddedCatalogSuggestionSource(
-            "SteamGameCustomStatus.Assets.GameCatalogs.NintendoSwitchTop100.json",
-            "Local curated list")
+            "SteamGameCustomStatus.Assets.GameCatalogs.ConsoleExclusivesTop200.json",
+            "Offline curated list")
     ]);
 
     public async Task<IReadOnlyList<GameNameSuggestion>> GetSuggestionsAsync(string query, int maxResults, CancellationToken cancellationToken)

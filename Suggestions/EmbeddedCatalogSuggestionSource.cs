@@ -85,7 +85,7 @@ internal sealed class EmbeddedCatalogSuggestionSource : IGameNameSuggestionSourc
                 .Where(entry => !string.IsNullOrWhiteSpace(entry.Title))
                 .Select(entry => new CatalogEntry(
                     entry.Title.Trim(),
-                    string.IsNullOrWhiteSpace(entry.Platform) ? "Nintendo Switch" : entry.Platform.Trim()))
+                    string.IsNullOrWhiteSpace(entry.Platform) ? "Console exclusive" : entry.Platform.Trim()))
                 .ToArray();
         }
         catch

@@ -12,7 +12,7 @@ Minimal tray-first Windows app for running as a Steam `non-Steam game` and contr
 - shows whether that shortcut is currently **Active in Steam** or **Inactive in Steam**
 - shows the current Steam entry name when the shortcut is found
 - lets you rename the matching non-Steam entry
-- offers local game-name suggestions in the rename dialog from a curated Nintendo Switch catalog
+- offers local game-name suggestions in the rename dialog from a curated multi-console exclusives catalog covering current platforms back to the PS3/Xbox 360 era
 - creates a `.bak` backup before writing `shortcuts.vdf`
 - can restart Steam automatically after rename when it is safe to apply the new name immediately
 - can relaunch itself through `steam://rungameid/...` after the rename flow when the app was originally started from Steam
@@ -75,7 +75,7 @@ If the app is not yet registered in Steam, it can open Steam to the add-game flo
 ### Rename and Steam restart behavior
 
 - A rename updates the matching shortcut entry and writes a fresh `shortcuts.vdf.bak` backup before saving.
-- The rename dialog now offers offline suggestions while you type, with keyboard-friendly autocomplete from an embedded curated Nintendo Switch top-games list.
+- The rename dialog now offers offline suggestions while you type, with keyboard-friendly autocomplete from an embedded curated console-exclusive list focused on well-known, well-reviewed games that still are not on PC.
 - Suggestions are assistive only: you can always ignore them and type any custom Steam name you want.
 - If Steam is not running, the rename is saved without starting Steam.
 - If Steam is running and no other Steam game is active, the app starts a helper relaunch flow so the name is applied immediately.
