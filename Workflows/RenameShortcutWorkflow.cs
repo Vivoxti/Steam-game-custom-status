@@ -33,7 +33,7 @@ internal static class RenameShortcutWorkflow
                 return;
             }
 
-            ShowMessage(owner, "The name was not changed.");
+            ShowMessage(owner, "The current name is the same");
             return;
         }
 
