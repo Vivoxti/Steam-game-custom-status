@@ -26,12 +26,9 @@ Canonical executable build:
 dotnet publish -c Release
 ```
 
-Published executable:
+Published executable (relative to repository root):
 
 ```text
-C:\Vivoderin\SteamGameCustomStatus\bin\Release\net10.0-windows\win-x64\publish\SteamGameCustomStatus.exe
+bin\Release\net10.0-windows\win-x64\publish\SteamGameCustomStatus.exe
 ```
 
-## More details
-
-Detailed project context, behavior notes, structure, and usage instructions live in [`.github/project-context.md`](./.github/project-context.md).
