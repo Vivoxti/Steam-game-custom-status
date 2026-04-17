@@ -1,5 +1,15 @@
+# Build output
 bin/
 obj/
 /packages/
+
+# JetBrains Rider / ReSharper
+.idea/
+*.sln.iml
 riderModule.iml
 /_ReSharper.Caches/
+
+# Visual Studio / local user state
+.vs/
+*.user
+*.suo
