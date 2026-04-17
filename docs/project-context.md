@@ -54,9 +54,11 @@ This keeps the instance actually launched by Steam preferred when applicable.
 - The app is a `WinExe` and does not rely on `StartupUri`.
 - `NotifyIcon` is used for tray integration.
 - The tray menu contains `Open`, `Exit`, and context-dependent Steam actions.
+- The tray icon mirrors Steam activity: white while active, gray while inactive.
 - When the current executable is registered in Steam, the tray can expose `Rename`, `Create Desktop Shortcut`, and optionally `Launch via Steam`.
 - Double-clicking the tray icon opens the control window.
 - When the main window is opened, the current Steam registration state is refreshed.
+- While the app is currently active in Steam, a low-frequency timer rechecks activity so tray and indicator can fall back to inactive after Steam stops reporting the shortcut as running.
 - Helper-mode launches used for rename/restart should exit early from normal startup handling.
 
 ### Main window behavior
@@ -83,6 +85,7 @@ Matching rule:
 Steam activity rule:
 
 - the shortcut is considered active when either the app was launched through Steam or Steam's `RunningAppID` matches the matched shortcut `appid`.
+- for live UI/tray updates, a Steam-launched session may initially be treated as active and then rechecked against `RunningAppID` on a low-frequency timer while active.
 
 ### Rename flow
 

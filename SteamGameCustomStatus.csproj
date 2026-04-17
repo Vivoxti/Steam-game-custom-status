@@ -14,4 +14,13 @@
         <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     </PropertyGroup>
 
+    <ItemGroup>
+        <EmbeddedResource Include="Assets\Icon.ico">
+            <LogicalName>SteamGameCustomStatus.Assets.Icon.ico</LogicalName>
+        </EmbeddedResource>
+        <EmbeddedResource Include="Assets\IconInactive.ico">
+            <LogicalName>SteamGameCustomStatus.Assets.IconInactive.ico</LogicalName>
+        </EmbeddedResource>
+    </ItemGroup>
+
 </Project>

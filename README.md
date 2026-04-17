@@ -6,6 +6,7 @@ Minimal tray-first Windows app for running as a Steam `non-Steam game` and contr
 
 - starts in the system tray without opening the main window
 - keeps the app alive in the tray when the window is closed
+- mirrors the Steam activity state in the tray icon: white while active, gray while inactive
 - detects whether the **current executable path** is already registered in Steam
 - finds the matching Steam shortcut by the current executable path inside `userdata\<steamid>\config\shortcuts.vdf`
 - shows whether that shortcut is currently **Active in Steam** or **Inactive in Steam**
@@ -58,6 +59,7 @@ If the app is not yet registered in Steam, it can open Steam to the add-game flo
 
 - Primary interaction is through the tray icon and tray menu.
 - Double-clicking the tray icon opens the control window.
+- The tray icon is white while the current shortcut is active in Steam and gray while inactive.
 - Closing the window hides it back to tray instead of exiting the app.
 - The control window is borderless, dark themed, hidden from the taskbar, and currently sized around `380 x 444`.
 - Inline success and warning messages are used while the window is open.
@@ -66,6 +68,7 @@ If the app is not yet registered in Steam, it can open Steam to the add-game flo
 
 - The app only works with the non-Steam shortcut whose `Exe` value matches the path of the currently running executable.
 - The Active/Inactive indicator is green when the app was launched by Steam or when Steam reports that the matched shortcut is the current `RunningAppID`.
+- While the app is currently active, a low-frequency background recheck keeps the tray icon and indicator aligned if Steam later stops reporting the shortcut as running.
 - Starting a different copy of the app from another folder creates a path mismatch and will not control the published Steam entry.
 
 ### Rename and Steam restart behavior

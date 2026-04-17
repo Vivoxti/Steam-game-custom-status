@@ -1,17 +1,24 @@
 using System;
 using System.Diagnostics;
+using System.Reflection;
 using SteamGameCustomStatus.Infrastructure;
 using SteamGameCustomStatus.Steam;
 using SteamGameCustomStatus.UI.Windows;
 using SteamGameCustomStatus.Workflows;
 using Drawing = System.Drawing;
 using Forms = System.Windows.Forms;
+using Threading = System.Windows.Threading;
 using Wpf = System.Windows;
 
 namespace SteamGameCustomStatus;
 
 public partial class App : Wpf.Application
 {
+    private static readonly TimeSpan ActiveTrayRefreshInterval = TimeSpan.FromSeconds(15);
+    private static readonly TimeSpan SteamLaunchActiveGracePeriod = TimeSpan.FromMinutes(2);
+    private const string ActiveTrayIconResourceName = "SteamGameCustomStatus.Assets.Icon.ico";
+    private const string InactiveTrayIconResourceName = "SteamGameCustomStatus.Assets.IconInactive.ico";
+
     private Forms.NotifyIcon? _notifyIcon;
     private Forms.ToolStripMenuItem? _renameMenuItem;
     private Forms.ToolStripMenuItem? _createDesktopShortcutMenuItem;
@@ -19,6 +26,10 @@ public partial class App : Wpf.Application
     private Forms.ToolStripSeparator? _actionsSeparator;
     private MainWindow? _mainWindow;
     private SingleInstanceCoordinator? _singleInstanceCoordinator;
+    private Threading.DispatcherTimer? _activeTrayRefreshTimer;
+    private Drawing.Icon? _activeTrayIcon;
+    private Drawing.Icon? _inactiveTrayIcon;
+    private DateTime? _steamLaunchActiveGraceDeadlineUtc;
     private bool _isSteamLaunch;
     private bool _isExiting;
 
@@ -35,6 +46,9 @@ public partial class App : Wpf.Application
         }
 
         _isSteamLaunch = LaunchContextDetector.IsSteamLaunch();
+        _steamLaunchActiveGraceDeadlineUtc = _isSteamLaunch
+            ? DateTime.UtcNow.Add(SteamLaunchActiveGracePeriod)
+            : null;
         _singleInstanceCoordinator = new SingleInstanceCoordinator(HandleInstanceStartupRequest);
 
         var startupResult = _singleInstanceCoordinator.RegisterCurrentInstance(_isSteamLaunch);
@@ -49,6 +63,13 @@ public partial class App : Wpf.Application
 
     protected override void OnExit(Wpf.ExitEventArgs e)
     {
+        if (_activeTrayRefreshTimer is not null)
+        {
+            _activeTrayRefreshTimer.Stop();
+            _activeTrayRefreshTimer.Tick -= ActiveTrayRefreshTimer_Tick;
+            _activeTrayRefreshTimer = null;
+        }
+
         _singleInstanceCoordinator?.Dispose();
         _singleInstanceCoordinator = null;
 
@@ -59,11 +80,25 @@ public partial class App : Wpf.Application
             _notifyIcon = null;
         }
 
+        _activeTrayIcon?.Dispose();
+        _activeTrayIcon = null;
+
+        _inactiveTrayIcon?.Dispose();
+        _inactiveTrayIcon = null;
+
         base.OnExit(e);
     }
 
     private void InitializeTrayIcon()
     {
+        _activeTrayIcon = LoadEmbeddedIcon(ActiveTrayIconResourceName) ?? GetFallbackProcessIcon();
+        _inactiveTrayIcon = LoadEmbeddedIcon(InactiveTrayIconResourceName) ?? (Drawing.Icon)_activeTrayIcon.Clone();
+        _activeTrayRefreshTimer = new Threading.DispatcherTimer
+        {
+            Interval = ActiveTrayRefreshInterval
+        };
+        _activeTrayRefreshTimer.Tick += ActiveTrayRefreshTimer_Tick;
+
         var contextMenu = new Forms.ContextMenuStrip();
         contextMenu.Items.Add("Open", null, (_, _) => ShowMainWindow());
         _renameMenuItem = new Forms.ToolStripMenuItem("Rename", null, (_, _) => RunRenameWorkflow());
@@ -85,7 +120,7 @@ public partial class App : Wpf.Application
 
         _notifyIcon = new Forms.NotifyIcon
         {
-            Icon = GetTrayIcon(),
+            Icon = _inactiveTrayIcon,
             Text = "Steam Game Custom Status",
             Visible = true,
             ContextMenuStrip = contextMenu
@@ -181,27 +216,52 @@ public partial class App : Wpf.Application
         _mainWindow?.ShowInlineMessage(message, isWarning, onDismissed);
     }
 
-    public void RefreshTrayMenuState()
+    public void RefreshTrayMenuState(bool? isRegisteredOverride = null)
     {
-        if (_renameMenuItem is null ||
-            _createDesktopShortcutMenuItem is null ||
-            _launchViaSteamMenuItem is null ||
-            _actionsSeparator is null)
+        var isRegistered = isRegisteredOverride ?? SteamShortcutRenamer.GetCurrentShortcutRegistrationStatus().IsRegistered;
+
+        if (_renameMenuItem is not null &&
+            _createDesktopShortcutMenuItem is not null &&
+            _launchViaSteamMenuItem is not null &&
+            _actionsSeparator is not null)
         {
-            return;
+            var showLaunchViaSteamAction = ShouldShowLaunchViaSteamAction(isRegistered);
+            _renameMenuItem.Visible = isRegistered;
+            _createDesktopShortcutMenuItem.Visible = isRegistered;
+            _launchViaSteamMenuItem.Visible = showLaunchViaSteamAction;
+            _actionsSeparator.Visible = isRegistered;
         }
 
-        var status = SteamShortcutRenamer.GetCurrentShortcutRegistrationStatus();
-        var showLaunchViaSteamAction = ShouldShowLaunchViaSteamAction(status.IsRegistered);
-        _renameMenuItem.Visible = status.IsRegistered;
-        _createDesktopShortcutMenuItem.Visible = status.IsRegistered;
-        _launchViaSteamMenuItem.Visible = showLaunchViaSteamAction;
-        _actionsSeparator.Visible = status.IsRegistered;
+        RefreshTrayVisualState(isRegistered);
     }
 
     internal bool ShouldShowLaunchViaSteamAction(bool isRegistered)
     {
         return isRegistered && !_isSteamLaunch;
+    }
+
+    internal bool IsCurrentShortcutActiveForDisplay(bool isRegistered)
+    {
+        if (!isRegistered)
+        {
+            return false;
+        }
+
+        var shortcutInfoResult = SteamShortcutRenamer.GetCurrentShortcutInfoForLaunch();
+        if (!shortcutInfoResult.Success || shortcutInfoResult.ShortcutInfo is null)
+        {
+            return false;
+        }
+
+        var runningAppId = SteamShortcutRenamer.GetRunningSteamAppId();
+        if (runningAppId != 0 && runningAppId == shortcutInfoResult.ShortcutInfo.AppId)
+        {
+            return true;
+        }
+
+        return _isSteamLaunch &&
+               _steamLaunchActiveGraceDeadlineUtc is { } graceDeadline &&
+               DateTime.UtcNow <= graceDeadline;
     }
 
     private InstanceStartupResponse HandleInstanceStartupRequest(InstanceStartupRequest request)
@@ -217,19 +277,72 @@ public partial class App : Wpf.Application
         return new InstanceStartupResponse(InstanceTransferAction.YieldToNewInstance);
     }
 
-    private static Drawing.Icon GetTrayIcon()
+    private void RefreshTrayVisualState(bool isRegistered)
+    {
+        if (_notifyIcon is null)
+        {
+            return;
+        }
+
+        var isActive = IsCurrentShortcutActiveForDisplay(isRegistered);
+        var desiredIcon = isActive ? _activeTrayIcon : _inactiveTrayIcon;
+        if (desiredIcon is not null && !ReferenceEquals(_notifyIcon.Icon, desiredIcon))
+        {
+            _notifyIcon.Icon = desiredIcon;
+        }
+
+        if (_activeTrayRefreshTimer is not null)
+        {
+            if (isActive)
+            {
+                if (!_activeTrayRefreshTimer.IsEnabled)
+                {
+                    _activeTrayRefreshTimer.Start();
+                }
+            }
+            else if (_activeTrayRefreshTimer.IsEnabled)
+            {
+                _activeTrayRefreshTimer.Stop();
+            }
+        }
+    }
+
+    private void ActiveTrayRefreshTimer_Tick(object? sender, EventArgs e)
+    {
+        if (_mainWindow is { IsVisible: true })
+        {
+            _mainWindow.RefreshSteamRegistrationStatus();
+            return;
+        }
+
+        RefreshTrayMenuState();
+    }
+
+    private static Drawing.Icon? LoadEmbeddedIcon(string resourceName)
+    {
+        using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName);
+        if (stream is null)
+        {
+            return null;
+        }
+
+        using var icon = new Drawing.Icon(stream);
+        return (Drawing.Icon)icon.Clone();
+    }
+
+    private static Drawing.Icon GetFallbackProcessIcon()
     {
         var processPath = Environment.ProcessPath;
         if (!string.IsNullOrWhiteSpace(processPath))
         {
-            var extractedIcon = Drawing.Icon.ExtractAssociatedIcon(processPath);
+            using var extractedIcon = Drawing.Icon.ExtractAssociatedIcon(processPath);
             if (extractedIcon is not null)
             {
-                return extractedIcon;
+                return (Drawing.Icon)extractedIcon.Clone();
             }
         }
 
-        return Drawing.SystemIcons.Application;
+        return (Drawing.Icon)Drawing.SystemIcons.Application.Clone();
     }
 
     private void ExitApplication()

@@ -59,7 +59,7 @@ public partial class MainWindow : Wpf.Window
                 ? Wpf.Visibility.Visible
                 : Wpf.Visibility.Collapsed;
 
-            var isActiveInSteam = app?.IsSteamLaunch == true || SteamShortcutRenamer.IsCurrentShortcutActiveInSteam();
+            var isActiveInSteam = app?.IsCurrentShortcutActiveForDisplay(status.IsRegistered) == true;
             UpdateSteamStatusIndicator(
                 isActiveInSteam,
                 isActiveInSteam
@@ -86,7 +86,7 @@ public partial class MainWindow : Wpf.Window
                 tooltip: "Inactive in Steam: this executable is not currently added to Steam as a non-Steam game.");
         }
 
-        (Wpf.Application.Current as App)?.RefreshTrayMenuState();
+        (Wpf.Application.Current as App)?.RefreshTrayMenuState(status.IsRegistered);
     }
 
     private void UpdateSteamStatusIndicator(bool isActive, string tooltip)
