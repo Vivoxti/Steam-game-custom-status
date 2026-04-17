@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Diagnostics;
 using SteamGameCustomStatus.Steam;
 using SteamGameCustomStatus.Workflows;
 using System.Windows.Input;
@@ -54,10 +53,18 @@ public partial class MainWindow : Wpf.Window
             MissingActionsPanel.Visibility = Wpf.Visibility.Collapsed;
             OpenSteamAddGameButton.ToolTip = null;
 
-            var isSteamLaunch = (Wpf.Application.Current as App)?.IsSteamLaunch == true;
-            LaunchViaSteamButton.Visibility = isSteamLaunch
-                ? Wpf.Visibility.Collapsed
-                : Wpf.Visibility.Visible;
+            var app = Wpf.Application.Current as App;
+            var shouldShowLaunchViaSteamAction = app?.ShouldShowLaunchViaSteamAction(status.IsRegistered) == true;
+            LaunchViaSteamButton.Visibility = shouldShowLaunchViaSteamAction
+                ? Wpf.Visibility.Visible
+                : Wpf.Visibility.Collapsed;
+
+            var isActiveInSteam = app?.IsSteamLaunch == true || SteamShortcutRenamer.IsCurrentShortcutActiveInSteam();
+            UpdateSteamStatusIndicator(
+                isActiveInSteam,
+                isActiveInSteam
+                    ? "Active in Steam: this app is currently being used as your Steam status."
+                    : "Inactive in Steam: launch this app through Steam to use it as your Steam status.");
         }
 
         else
@@ -73,9 +80,23 @@ public partial class MainWindow : Wpf.Window
             RegisteredStatusCard.ToolTip = null;
             RegisteredStatusDescription.Text = string.Empty;
             RegisteredActionsPanel.Visibility = Wpf.Visibility.Collapsed;
+
+            UpdateSteamStatusIndicator(
+                isActive: false,
+                tooltip: "Inactive in Steam: this executable is not currently added to Steam as a non-Steam game.");
         }
 
         (Wpf.Application.Current as App)?.RefreshTrayMenuState();
+    }
+
+    private void UpdateSteamStatusIndicator(bool isActive, string tooltip)
+    {
+        var fillResourceKey = isActive ? "SteamActiveIndicatorBrush" : "SteamInactiveIndicatorBrush";
+        var borderResourceKey = isActive ? "SteamActiveIndicatorBorderBrush" : "SteamInactiveIndicatorBorderBrush";
+
+        SteamStatusIndicator.Fill = (Media.Brush)FindResource(fillResourceKey);
+        SteamStatusIndicator.Stroke = (Media.Brush)FindResource(borderResourceKey);
+        SteamStatusIndicator.ToolTip = tooltip;
     }
 
     public void ForceClose()
@@ -236,29 +257,7 @@ public partial class MainWindow : Wpf.Window
 
     private void LaunchViaSteam_Click(object sender, Wpf.RoutedEventArgs e)
     {
-        var shortcutInfoResult = SteamShortcutRenamer.GetCurrentShortcutInfoForLaunch();
-        if (!shortcutInfoResult.Success || shortcutInfoResult.ShortcutInfo is null)
-        {
-            ShowInlineMessage(shortcutInfoResult.Message, isWarning: true);
-            return;
-        }
-
-        var runGameId = shortcutInfoResult.ShortcutInfo.RunGameId;
-        try
-        {
-            Process.Start(new ProcessStartInfo
-            {
-                FileName = $"steam://rungameid/{runGameId}",
-                UseShellExecute = true
-            });
-        }
-        catch
-        {
-            ShowInlineMessage("Failed to launch via Steam.", isWarning: true);
-            return;
-        }
-
-        (Wpf.Application.Current as App)?.ExitForSteamRelaunch();
+        (Wpf.Application.Current as App)?.RunLaunchViaSteamWorkflow();
     }
 
     private void Hide_Click(object sender, Wpf.RoutedEventArgs e)

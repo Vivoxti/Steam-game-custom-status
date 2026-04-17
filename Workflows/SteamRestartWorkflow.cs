@@ -1,5 +1,4 @@
 ﻿using System.Diagnostics;
-using Microsoft.Win32;
 using SteamGameCustomStatus.Steam;
 
 namespace SteamGameCustomStatus.Workflows;
@@ -157,29 +156,10 @@ internal static class SteamRestartWorkflow
             return false;
         }
 
-        var runningAppId = GetRunningSteamAppId();
+        var runningAppId = SteamShortcutRenamer.GetRunningSteamAppId();
         return runningAppId != 0 && runningAppId != currentShortcutAppId;
     }
 
-    private static uint GetRunningSteamAppId()
-    {
-        try
-        {
-            using var steamKey = Registry.CurrentUser.OpenSubKey(@"Software\Valve\Steam");
-            var rawValue = steamKey?.GetValue("RunningAppID");
-            return rawValue switch
-            {
-                int intValue when intValue >= 0 => unchecked((uint)intValue),
-                long longValue when longValue >= 0 && longValue <= uint.MaxValue => (uint)longValue,
-                string stringValue when uint.TryParse(stringValue, out var parsed) => parsed,
-                _ => 0
-            };
-        }
-        catch
-        {
-            return 0;
-        }
-    }
 
     private static bool TryStartHelperProcess(string newName, ulong? relaunchRunGameId, int? waitForExitProcessId)
     {

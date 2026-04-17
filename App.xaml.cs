@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using SteamGameCustomStatus.Infrastructure;
 using SteamGameCustomStatus.Steam;
 using SteamGameCustomStatus.UI.Windows;
@@ -14,6 +15,7 @@ public partial class App : Wpf.Application
     private Forms.NotifyIcon? _notifyIcon;
     private Forms.ToolStripMenuItem? _renameMenuItem;
     private Forms.ToolStripMenuItem? _createDesktopShortcutMenuItem;
+    private Forms.ToolStripMenuItem? _launchViaSteamMenuItem;
     private Forms.ToolStripSeparator? _actionsSeparator;
     private MainWindow? _mainWindow;
     private SingleInstanceCoordinator? _singleInstanceCoordinator;
@@ -69,9 +71,14 @@ public partial class App : Wpf.Application
             "Create Desktop Shortcut",
             null,
             (_, _) => RunCreateDesktopShortcutWorkflow());
+        _launchViaSteamMenuItem = new Forms.ToolStripMenuItem(
+            "Launch via Steam",
+            null,
+            (_, _) => RunLaunchViaSteamWorkflow());
         _actionsSeparator = new Forms.ToolStripSeparator();
         contextMenu.Items.Add(_renameMenuItem);
         contextMenu.Items.Add(_createDesktopShortcutMenuItem);
+        contextMenu.Items.Add(_launchViaSteamMenuItem);
         contextMenu.Items.Add(_actionsSeparator);
         contextMenu.Items.Add("Exit", null, (_, _) => ExitApplication());
         contextMenu.Opening += (_, _) => RefreshTrayMenuState();
@@ -105,6 +112,16 @@ public partial class App : Wpf.Application
         }
 
         _mainWindow.Activate();
+
+        Dispatcher.BeginInvoke(new Action(() =>
+        {
+            if (_mainWindow is null || !_mainWindow.IsVisible)
+            {
+                return;
+            }
+
+            _mainWindow.RefreshSteamRegistrationStatus();
+        }));
     }
 
     private void RunRenameWorkflow()
@@ -129,6 +146,35 @@ public partial class App : Wpf.Application
         RefreshTrayMenuState();
     }
 
+    internal void RunLaunchViaSteamWorkflow()
+    {
+        var shortcutInfoResult = SteamShortcutRenamer.GetCurrentShortcutInfoForLaunch();
+        if (!shortcutInfoResult.Success || shortcutInfoResult.ShortcutInfo is null)
+        {
+            ShowMainWindowInlineMessage(shortcutInfoResult.Message, isWarning: true);
+            RefreshTrayMenuState();
+            return;
+        }
+
+        var runGameId = shortcutInfoResult.ShortcutInfo.RunGameId;
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = $"steam://rungameid/{runGameId}",
+                UseShellExecute = true
+            });
+        }
+        catch
+        {
+            ShowMainWindowInlineMessage("Failed to launch via Steam.", isWarning: true);
+            RefreshTrayMenuState();
+            return;
+        }
+
+        ExitForSteamRelaunch();
+    }
+
     internal void ShowMainWindowInlineMessage(string message, bool isWarning = false, Action? onDismissed = null)
     {
         ShowMainWindow();
@@ -137,15 +183,25 @@ public partial class App : Wpf.Application
 
     public void RefreshTrayMenuState()
     {
-        if (_renameMenuItem is null || _createDesktopShortcutMenuItem is null || _actionsSeparator is null)
+        if (_renameMenuItem is null ||
+            _createDesktopShortcutMenuItem is null ||
+            _launchViaSteamMenuItem is null ||
+            _actionsSeparator is null)
         {
             return;
         }
 
         var status = SteamShortcutRenamer.GetCurrentShortcutRegistrationStatus();
+        var showLaunchViaSteamAction = ShouldShowLaunchViaSteamAction(status.IsRegistered);
         _renameMenuItem.Visible = status.IsRegistered;
         _createDesktopShortcutMenuItem.Visible = status.IsRegistered;
+        _launchViaSteamMenuItem.Visible = showLaunchViaSteamAction;
         _actionsSeparator.Visible = status.IsRegistered;
+    }
+
+    internal bool ShouldShowLaunchViaSteamAction(bool isRegistered)
+    {
+        return isRegistered && !_isSteamLaunch;
     }
 
     private InstanceStartupResponse HandleInstanceStartupRequest(InstanceStartupRequest request)

@@ -32,6 +32,10 @@
         <SolidColorBrush x:Key="WarningBg" Color="#2A2114" />
         <SolidColorBrush x:Key="WarningBorder" Color="#5C4420" />
         <SolidColorBrush x:Key="WarningText" Color="#FFD38A" />
+        <SolidColorBrush x:Key="SteamActiveIndicatorBrush" Color="#56D364" />
+        <SolidColorBrush x:Key="SteamActiveIndicatorBorderBrush" Color="#2F7D36" />
+        <SolidColorBrush x:Key="SteamInactiveIndicatorBrush" Color="#E5534B" />
+        <SolidColorBrush x:Key="SteamInactiveIndicatorBorderBrush" Color="#8F2D28" />
 
         <DropShadowEffect x:Key="WinShadow" BlurRadius="24" ShadowDepth="0" Opacity="0.3" Color="#000000" />
 
@@ -148,10 +152,22 @@
             <StackPanel Grid.Row="1"
                         Margin="28,12,28,0"
                         VerticalAlignment="Top">
-                <TextBlock FontFamily="Segoe UI Variable Display, Segoe UI"
-                           FontSize="22" FontWeight="SemiBold"
-                           Foreground="{StaticResource TextPrimary}"
-                           Text="Custom Status" />
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock FontFamily="Segoe UI Variable Display, Segoe UI"
+                               FontSize="22"
+                               FontWeight="SemiBold"
+                               Foreground="{StaticResource TextPrimary}"
+                               Text="Custom Status" />
+                    <Ellipse x:Name="SteamStatusIndicator"
+                             Width="10"
+                             Height="10"
+                             Margin="8,6,0,0"
+                             VerticalAlignment="Center"
+                             Fill="{StaticResource SteamInactiveIndicatorBrush}"
+                             Stroke="{StaticResource SteamInactiveIndicatorBorderBrush}"
+                             StrokeThickness="1"
+                             ToolTip="Inactive in Steam." />
+                </StackPanel>
                 <TextBlock Margin="0,6,0,0"
                            FontFamily="Segoe UI Variable Display, Segoe UI"
                            FontSize="13" Foreground="{StaticResource TextSecondary}"

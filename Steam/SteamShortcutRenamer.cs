@@ -19,7 +19,7 @@ internal static class SteamShortcutRenamer
 
             var description = currentName is null
                 ? "The current executable was found among Steam non-Steam games."
-                : $"Current Steam name: {currentName}";
+                : $"Current name: {currentName}";
 
             return ShortcutRegistrationStatus.Registered(description, currentName);
         }
@@ -125,6 +125,38 @@ internal static class SteamShortcutRenamer
     internal static string? GetSteamExecutablePath()
     {
         return TryGetSteamExePath();
+    }
+
+    internal static bool IsCurrentShortcutActiveInSteam()
+    {
+        var shortcutInfoResult = FindCurrentShortcutInfo();
+        if (!shortcutInfoResult.Success || shortcutInfoResult.ShortcutInfo is null)
+        {
+            return false;
+        }
+
+        var runningAppId = GetRunningSteamAppId();
+        return runningAppId != 0 && runningAppId == shortcutInfoResult.ShortcutInfo.AppId;
+    }
+
+    internal static uint GetRunningSteamAppId()
+    {
+        try
+        {
+            using var steamKey = Registry.CurrentUser.OpenSubKey(@"Software\Valve\Steam");
+            var rawValue = steamKey?.GetValue("RunningAppID");
+            return rawValue switch
+            {
+                int intValue when intValue >= 0 => unchecked((uint)intValue),
+                long longValue when longValue >= 0 && longValue <= uint.MaxValue => (uint)longValue,
+                string stringValue when uint.TryParse(stringValue, out var parsed) => parsed,
+                _ => 0
+            };
+        }
+        catch
+        {
+            return 0;
+        }
     }
 
     public static OperationResult CreateDesktopShortcutForCurrentShortcut()
