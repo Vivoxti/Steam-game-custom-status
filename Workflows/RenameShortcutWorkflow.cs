@@ -1,4 +1,5 @@
 using SteamGameCustomStatus.Infrastructure;
+using SteamGameCustomStatus.Suggestions;
 using SteamGameCustomStatus.Steam;
 using SteamGameCustomStatus.UI.Dialogs;
 using SteamGameCustomStatus.UI.Windows;
@@ -19,7 +20,7 @@ internal static class RenameShortcutWorkflow
 
         var currentName = lookupResult.CurrentName ?? "Steam Game Custom Status";
 
-        var dialog = new RenameDialog(currentName, owner);
+        var dialog = new RenameDialog(currentName, owner, GameNameSuggestionService.Default);
         if (dialog.ShowDialog() != true || string.IsNullOrWhiteSpace(dialog.ResultName))
         {
             return;

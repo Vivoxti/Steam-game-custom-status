@@ -100,6 +100,13 @@ Rename behavior is implemented around the following flow:
 7. Create a `.bak` backup.
 8. Save the file back in Steam-compatible format.
 
+Rename dialog UX notes:
+
+- the rename dialog keeps manual free-text entry as the primary action;
+- while typing, it can surface offline game-name suggestions from an embedded curated Nintendo Switch catalog;
+- suggestions are assistive only and must never block custom naming or successful rename submission;
+- the suggestion layer is intentionally extensible so richer online or cached providers can be added later without rewriting Steam rename logic.
+
 Lookup and write notes:
 
 - the parser reads Steam's binary VDF object structure directly;
@@ -181,6 +188,7 @@ bin\Release\net10.0-windows\win-x64\publish\SteamGameCustomStatus.exe
 - `App.xaml` / `App.xaml.cs` — startup, tray icon, lifecycle, dynamic tray actions, and Steam relaunch exit handling
 - `UI/Windows/MainWindow.xaml` / `UI/Windows/MainWindow.xaml.cs` — control window, status refresh, Steam activity indicator, inline messages, and hide-to-tray behavior
 - `UI/Dialogs/RenameDialog.xaml` / `UI/Dialogs/RenameDialog.xaml.cs` — rename entry dialog
+- `Suggestions/` — rename-dialog game-name suggestion contracts, embedded catalog source, and aggregation service
 - `Steam/SteamShortcutRenamer.cs` — `shortcuts.vdf` parsing, lookup, backup, update, activity detection, desktop shortcut creation, and open-Steam helpers
 - `Workflows/RenameShortcutWorkflow.cs` — rename workflow orchestration
 - `Workflows/SteamRestartWorkflow.cs` — safe Steam restart and optional relaunch flow, including hidden helper mode
@@ -214,6 +222,7 @@ bin\Release\net10.0-windows\win-x64\publish\SteamGameCustomStatus.exe
 
 - Prefer small, targeted edits over broad refactors.
 - If changing Steam integration, trace the flow through `SteamShortcutRenamer`, `RenameShortcutWorkflow`, and `SteamRestartWorkflow` together.
+- If changing rename suggestions, preserve compact keyboard-friendly behavior and keep manual custom names working even when suggestion sources are unavailable.
 - If changing startup or activation logic, also inspect `SingleInstanceCoordinator` and `LaunchContextDetector`.
 - If changing window and tray behavior, verify both tray-first startup and hide-to-tray behavior still work.
 - After code changes, validate the affected files and run an appropriate .NET build or publish command.

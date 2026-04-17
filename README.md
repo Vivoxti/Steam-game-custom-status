@@ -12,6 +12,7 @@ Minimal tray-first Windows app for running as a Steam `non-Steam game` and contr
 - shows whether that shortcut is currently **Active in Steam** or **Inactive in Steam**
 - shows the current Steam entry name when the shortcut is found
 - lets you rename the matching non-Steam entry
+- offers local game-name suggestions in the rename dialog from a curated Nintendo Switch catalog
 - creates a `.bak` backup before writing `shortcuts.vdf`
 - can restart Steam automatically after rename when it is safe to apply the new name immediately
 - can relaunch itself through `steam://rungameid/...` after the rename flow when the app was originally started from Steam
@@ -74,6 +75,8 @@ If the app is not yet registered in Steam, it can open Steam to the add-game flo
 ### Rename and Steam restart behavior
 
 - A rename updates the matching shortcut entry and writes a fresh `shortcuts.vdf.bak` backup before saving.
+- The rename dialog now offers offline suggestions while you type, with keyboard-friendly autocomplete from an embedded curated Nintendo Switch top-games list.
+- Suggestions are assistive only: you can always ignore them and type any custom Steam name you want.
 - If Steam is not running, the rename is saved without starting Steam.
 - If Steam is running and no other Steam game is active, the app starts a helper relaunch flow so the name is applied immediately.
 - If the app was launched from Steam, that helper flow can close the current instance, restart Steam, and relaunch the app through `steam://rungameid/...`.
@@ -130,6 +133,7 @@ Current publish-related project settings:
 - `App.xaml` / `App.xaml.cs` — startup, tray icon, lifecycle, dynamic tray actions, and Steam relaunch exit handling
 - `UI/Windows/MainWindow.xaml` / `UI/Windows/MainWindow.xaml.cs` — compact control window, status refresh, active/inactive indicator, and inline messages
 - `UI/Dialogs/RenameDialog.xaml` / `UI/Dialogs/RenameDialog.xaml.cs` — rename dialog UI
+- `Suggestions/` — game-name suggestion sources and aggregation for the rename dialog
 - `Steam/SteamShortcutRenamer.cs` — `shortcuts.vdf` lookup, backup creation, rename, launch metadata, desktop shortcut generation, and Steam-opening helpers
 - `Workflows/RenameShortcutWorkflow.cs` — rename dialog and result handling
 - `Workflows/DesktopShortcutWorkflow.cs` — desktop shortcut flow
