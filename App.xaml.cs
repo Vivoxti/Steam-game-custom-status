@@ -32,18 +32,14 @@ public partial class App : Wpf.Application
     private DateTime? _steamLaunchActiveGraceDeadlineUtc;
     private bool _isSteamLaunch;
     private bool _isExiting;
+    private bool _skipSteamExitCleanup;
+    private bool _steamExitCleanupScheduled;
 
     protected override void OnStartup(Wpf.StartupEventArgs e)
     {
         base.OnStartup(e);
 
         ShutdownMode = Wpf.ShutdownMode.OnExplicitShutdown;
-
-        if (SteamRestartWorkflow.TryHandleHelperLaunch(e.Args))
-        {
-            Shutdown();
-            return;
-        }
 
         _isSteamLaunch = LaunchContextDetector.IsSteamLaunch();
         _steamLaunchActiveGraceDeadlineUtc = _isSteamLaunch
@@ -63,6 +59,8 @@ public partial class App : Wpf.Application
 
     protected override void OnExit(Wpf.ExitEventArgs e)
     {
+        EnsureSteamExitCleanupScheduled();
+
         if (_activeTrayRefreshTimer is not null)
         {
             _activeTrayRefreshTimer.Stop();
@@ -87,6 +85,14 @@ public partial class App : Wpf.Application
         _inactiveTrayIcon = null;
 
         base.OnExit(e);
+    }
+
+    protected override void OnSessionEnding(Wpf.SessionEndingCancelEventArgs e)
+    {
+        _isExiting = true;
+        EnsureSteamExitCleanupScheduled();
+        _mainWindow?.ForceClose();
+        base.OnSessionEnding(e);
     }
 
     private void InitializeTrayIcon()
@@ -273,7 +279,7 @@ public partial class App : Wpf.Application
             return new InstanceStartupResponse(InstanceTransferAction.ActivateExistingInstance);
         }
 
-        Dispatcher.BeginInvoke(new Action(ExitApplication));
+        Dispatcher.BeginInvoke(new Action(() => ExitApplication(skipSteamExitCleanup: true)));
         return new InstanceStartupResponse(InstanceTransferAction.YieldToNewInstance);
     }
 
@@ -345,11 +351,46 @@ public partial class App : Wpf.Application
         return (Drawing.Icon)Drawing.SystemIcons.Application.Clone();
     }
 
-    private void ExitApplication()
+    private void ExitApplication(bool skipSteamExitCleanup = false)
     {
+        if (_isExiting)
+        {
+            return;
+        }
+
         _isExiting = true;
+        _skipSteamExitCleanup = skipSteamExitCleanup;
+        EnsureSteamExitCleanupScheduled();
         _mainWindow?.ForceClose();
         Shutdown();
+    }
+
+    private void EnsureSteamExitCleanupScheduled()
+    {
+        if (_skipSteamExitCleanup || _steamExitCleanupScheduled)
+        {
+            return;
+        }
+
+        var shortcutInfoResult = SteamShortcutRenamer.GetCurrentShortcutInfoForLaunch();
+        if (!shortcutInfoResult.Success || shortcutInfoResult.ShortcutInfo is null)
+        {
+            return;
+        }
+
+        var shortcutAppId = shortcutInfoResult.ShortcutInfo.AppId;
+        if (shortcutAppId == 0)
+        {
+            return;
+        }
+
+        var runningAppId = SteamShortcutRenamer.GetRunningSteamAppId();
+        if (!_isSteamLaunch && runningAppId != shortcutAppId)
+        {
+            return;
+        }
+
+        _steamExitCleanupScheduled = SteamLifecycleGuard.TryScheduleRunningAppIdCleanup(Environment.ProcessId, shortcutAppId);
     }
 
     public bool IsExiting => _isExiting;

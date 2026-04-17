@@ -34,7 +34,7 @@ public partial class RenameDialog : Window
         NameTextBox.Text = currentName;
         NameTextBox.SelectAll();
         _suppressSuggestionRefresh = false;
-        UpdateSuggestionStatus("Type for game suggestions.");
+        UpdateSuggestionStatus("Type for suggestions. Any custom name works.");
 
         if (owner is { IsVisible: true, WindowState: not WindowState.Minimized })
         {
@@ -207,7 +207,7 @@ public partial class RenameDialog : Window
             return;
         }
 
-        UpdateSuggestionStatus("Searching game lists...");
+        UpdateSuggestionStatus("Searching suggestions...");
         _suggestionRefreshTimer.Start();
     }
 
@@ -235,6 +235,18 @@ public partial class RenameDialog : Window
         IReadOnlyList<GameNameSuggestion> suggestions;
         try
         {
+            var offlineSuggestions = await _suggestionService.GetOfflineSuggestionsAsync(query, MaxSuggestionCount, cancellation.Token);
+            if (!ReferenceEquals(_suggestionRefreshCancellation, cancellation) || !IsLoaded)
+            {
+                return;
+            }
+
+            if (offlineSuggestions.Count > 0)
+            {
+                SetSuggestions(offlineSuggestions);
+                UpdateSuggestionStatus("Searching online suggestions...");
+            }
+
             suggestions = await _suggestionService.GetSuggestionsAsync(query, MaxSuggestionCount, cancellation.Token);
         }
         catch (OperationCanceledException)

@@ -18,6 +18,8 @@ internal sealed class EmbeddedCatalogSuggestionSource : IGameNameSuggestionSourc
     private readonly string _sourceLabel;
     private readonly Lazy<IReadOnlyList<CatalogEntry>> _catalog;
 
+    public bool IsOnline => false;
+
     public EmbeddedCatalogSuggestionSource(string resourceName, string sourceLabel)
     {
         _resourceName = resourceName;

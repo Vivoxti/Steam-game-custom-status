@@ -12,19 +12,43 @@ internal sealed class GameNameSuggestionService
     public static GameNameSuggestionService Default { get; } = new([
         new EmbeddedCatalogSuggestionSource(
             "SteamGameCustomStatus.Assets.GameCatalogs.ConsoleExclusivesTop200.json",
-            "Offline curated list")
+            "Offline curated list"),
+        new SteamStoreSuggestionSource()
     ]);
 
+    public Task<IReadOnlyList<GameNameSuggestion>> GetOfflineSuggestionsAsync(string query, int maxResults, CancellationToken cancellationToken)
+    {
+        return GetSuggestionsCoreAsync(query, maxResults, includeOnlineSources: false, cancellationToken);
+    }
+
     public async Task<IReadOnlyList<GameNameSuggestion>> GetSuggestionsAsync(string query, int maxResults, CancellationToken cancellationToken)
+    {
+        return await GetSuggestionsCoreAsync(query, maxResults, includeOnlineSources: true, cancellationToken);
+    }
+
+    private async Task<IReadOnlyList<GameNameSuggestion>> GetSuggestionsCoreAsync(
+        string query,
+        int maxResults,
+        bool includeOnlineSources,
+        CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(query) || maxResults <= 0 || _sources.Count == 0)
         {
             return Array.Empty<GameNameSuggestion>();
         }
 
-        var distinctSuggestions = new Dictionary<string, GameNameSuggestion>(StringComparer.OrdinalIgnoreCase);
+        var activeSources = includeOnlineSources
+            ? _sources
+            : _sources.Where(source => !source.IsOnline).ToArray();
 
-        foreach (var source in _sources)
+        if (activeSources.Count == 0)
+        {
+            return Array.Empty<GameNameSuggestion>();
+        }
+
+        var suggestionSets = new List<IReadOnlyList<GameNameSuggestion>>(activeSources.Count);
+
+        foreach (var source in activeSources)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -39,24 +63,57 @@ internal sealed class GameNameSuggestionService
             }
             catch
             {
+                suggestionSets.Add(Array.Empty<GameNameSuggestion>());
                 continue;
             }
 
-            foreach (var suggestion in sourceSuggestions)
-            {
-                if (!distinctSuggestions.ContainsKey(suggestion.Title))
-                {
-                    distinctSuggestions[suggestion.Title] = suggestion;
-                }
+            suggestionSets.Add(sourceSuggestions);
+        }
 
-                if (distinctSuggestions.Count >= maxResults)
+        return MergeSuggestions(suggestionSets, maxResults);
+    }
+
+    private static IReadOnlyList<GameNameSuggestion> MergeSuggestions(
+        IReadOnlyList<IReadOnlyList<GameNameSuggestion>> suggestionSets,
+        int maxResults)
+    {
+        if (suggestionSets.Count == 0 || maxResults <= 0)
+        {
+            return Array.Empty<GameNameSuggestion>();
+        }
+
+        var mergedSuggestions = new List<GameNameSuggestion>(maxResults);
+        var seenTitles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var positions = new int[suggestionSets.Count];
+
+        while (mergedSuggestions.Count < maxResults)
+        {
+            var addedAnySuggestionThisRound = false;
+
+            for (var sourceIndex = 0; sourceIndex < suggestionSets.Count && mergedSuggestions.Count < maxResults; sourceIndex++)
+            {
+                var suggestions = suggestionSets[sourceIndex];
+                while (positions[sourceIndex] < suggestions.Count)
                 {
-                    return distinctSuggestions.Values.ToArray();
+                    var suggestion = suggestions[positions[sourceIndex]++];
+                    if (!seenTitles.Add(suggestion.Title))
+                    {
+                        continue;
+                    }
+
+                    mergedSuggestions.Add(suggestion);
+                    addedAnySuggestionThisRound = true;
+                    break;
                 }
+            }
+
+            if (!addedAnySuggestionThisRound)
+            {
+                break;
             }
         }
 
-        return distinctSuggestions.Values.ToArray();
+        return mergedSuggestions;
     }
 }
 

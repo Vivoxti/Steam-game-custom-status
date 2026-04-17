@@ -12,7 +12,7 @@ Internal reference for repository-aware assistance. This file is the canonical d
 - Only one active tray instance should survive at a time.
 - Steam-launched instances have priority over normal launches when single-instance decisions are made.
 - Desktop shortcuts must launch through `steam://rungameid/...`, not by starting the executable directly.
-- After rename, the app may restart Steam automatically when it is safe to do so, using a helper-mode relaunch flow.
+- After rename, the app may restart Steam automatically when it is safe to do so, using a hidden external helper to restart Steam and optionally relaunch through Steam.
 - The UI exposes Steam registration state, the current Steam name, and an Active/Inactive indicator for Steam presence.
 - A `Launch via Steam` action is available when the shortcut exists but the current instance was started outside Steam.
 - User-facing instructions should prefer the published executable path, not Debug output paths.
@@ -59,7 +59,7 @@ This keeps the instance actually launched by Steam preferred when applicable.
 - Double-clicking the tray icon opens the control window.
 - When the main window is opened, the current Steam registration state is refreshed.
 - While the app is currently active in Steam, a low-frequency timer rechecks activity so tray and indicator can fall back to inactive after Steam stops reporting the shortcut as running.
-- Helper-mode launches used for rename/restart should exit early from normal startup handling.
+- Steam restart/relaunch is handled by a hidden external helper so the main app executable does not stay alive in an internal helper mode after a Steam-launched session ends.
 
 ### Main window behavior
 
@@ -103,9 +103,11 @@ Rename behavior is implemented around the following flow:
 Rename dialog UX notes:
 
 - the rename dialog keeps manual free-text entry as the primary action;
-- while typing, it can surface offline game-name suggestions from an embedded curated multi-console exclusives catalog spanning current platforms back to the PS3/Xbox 360 era;
+- while typing, it surfaces hybrid game-name suggestions: immediate offline matches from an embedded curated multi-console exclusives catalog spanning current platforms back to the PS3/Xbox 360 era, plus online Steam Store search results when available;
 - suggestions are assistive only and must never block custom naming or successful rename submission;
-- the suggestion layer is intentionally extensible so richer online or cached providers can be added later without rewriting Steam rename logic.
+- online suggestion lookup is debounced in the dialog, cancels stale requests, uses a short timeout, and falls back cleanly to offline-only behavior when the network or API is unavailable;
+- the online layer keeps a small in-memory exact-query cache and may reuse stale cached results as a graceful fallback during transient failures;
+- the suggestion layer remains intentionally extensible so richer providers can still be added later without rewriting Steam rename logic.
 
 Lookup and write notes:
 
@@ -122,7 +124,8 @@ Lookup and write notes:
 - If the app is running outside Steam, only Steam is restarted and the app keeps running.
 - If the app is running through Steam, the current instance closes, Steam restarts, and the app is launched again through `steam://rungameid/...`.
 - If another game is running, automatic restart is skipped and the rename must be applied by a later manual Steam restart.
-- The restart is coordinated by relaunching the same executable in hidden helper mode with internal arguments such as `--steam-restart-helper`, `--new-name`, and optional relaunch/wait parameters.
+- The restart is coordinated by a hidden external helper that waits for the app process to exit when needed, restarts Steam, and optionally relaunches through `steam://rungameid/...`.
+- On a real app exit, the app also schedules a best-effort stale-`RunningAppID` cleanup if Steam still points at this shortcut after the process is gone.
 
 ### Desktop shortcut behavior
 
@@ -185,13 +188,14 @@ bin\Release\net10.0-windows\win-x64\publish\SteamGameCustomStatus.exe
 
 ## File map
 
-- `App.xaml` / `App.xaml.cs` — startup, tray icon, lifecycle, dynamic tray actions, and Steam relaunch exit handling
+- `App.xaml` / `App.xaml.cs` — startup, tray icon, lifecycle, dynamic tray actions, Steam relaunch exit handling, and safe exit cleanup scheduling
 - `UI/Windows/MainWindow.xaml` / `UI/Windows/MainWindow.xaml.cs` — control window, status refresh, Steam activity indicator, inline messages, and hide-to-tray behavior
 - `UI/Dialogs/RenameDialog.xaml` / `UI/Dialogs/RenameDialog.xaml.cs` — rename entry dialog
-- `Suggestions/` — rename-dialog game-name suggestion contracts, embedded catalog source, and aggregation service
+- `Suggestions/` — rename-dialog game-name suggestion contracts, embedded catalog source, Steam Store online source, and aggregation service
 - `Steam/SteamShortcutRenamer.cs` — `shortcuts.vdf` parsing, lookup, backup, update, activity detection, desktop shortcut creation, and open-Steam helpers
 - `Workflows/RenameShortcutWorkflow.cs` — rename workflow orchestration
-- `Workflows/SteamRestartWorkflow.cs` — safe Steam restart and optional relaunch flow, including hidden helper mode
+- `Workflows/SteamRestartWorkflow.cs` — safe Steam restart and optional relaunch flow orchestration
+- `Infrastructure/SteamLifecycleGuard.cs` — hidden PowerShell helpers for Steam restart sequencing and stale running-state cleanup
 - `Workflows/DesktopShortcutWorkflow.cs` — `steam://rungameid/...` desktop shortcut workflow
 - `Workflows/OpenSteamAddGameWorkflow.cs` — opening Steam to add a non-Steam game
 - `Infrastructure/SingleInstanceCoordinator.cs` — single-instance rules and instance priority handling
@@ -222,7 +226,7 @@ bin\Release\net10.0-windows\win-x64\publish\SteamGameCustomStatus.exe
 
 - Prefer small, targeted edits over broad refactors.
 - If changing Steam integration, trace the flow through `SteamShortcutRenamer`, `RenameShortcutWorkflow`, and `SteamRestartWorkflow` together.
-- If changing rename suggestions, preserve compact keyboard-friendly behavior and keep manual custom names working even when suggestion sources are unavailable.
+- If changing rename suggestions, preserve compact keyboard-friendly behavior, keep manual custom names working even when suggestion sources are unavailable, and retain the offline-first + online-enrichment model.
 - If changing startup or activation logic, also inspect `SingleInstanceCoordinator` and `LaunchContextDetector`.
 - If changing window and tray behavior, verify both tray-first startup and hide-to-tray behavior still work.
 - After code changes, validate the affected files and run an appropriate .NET build or publish command.

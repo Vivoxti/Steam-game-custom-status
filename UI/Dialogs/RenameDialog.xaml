@@ -238,7 +238,7 @@
                                        FontFamily="Segoe UI Variable Display, Segoe UI"
                                        FontSize="11"
                                        Foreground="{StaticResource TextSecondary}"
-                                       Text="Game lists • offline" />
+                                        Text="Curated list + Steam Store" />
                         </DockPanel>
 
                         <ListBox x:Name="SuggestionsListBox"
@@ -366,7 +366,7 @@
                            FontFamily="Segoe UI Variable Display, Segoe UI"
                            FontSize="11"
                            Foreground="{StaticResource TextSecondary}"
-                           Text="Suggestions from game lists." />
+                           Text="Hybrid suggestions with offline fallback." />
 
                 <TextBlock Grid.Column="1"
                            Margin="12,0,0,0"

@@ -12,10 +12,11 @@ Minimal tray-first Windows app for running as a Steam `non-Steam game` and contr
 - shows whether that shortcut is currently **Active in Steam** or **Inactive in Steam**
 - shows the current Steam entry name when the shortcut is found
 - lets you rename the matching non-Steam entry
-- offers local game-name suggestions in the rename dialog from a curated multi-console exclusives catalog covering current platforms back to the PS3/Xbox 360 era
+- offers hybrid game-name suggestions in the rename dialog from a curated offline multi-console exclusives catalog plus Steam Store search when the network is available
 - creates a `.bak` backup before writing `shortcuts.vdf`
 - can restart Steam automatically after rename when it is safe to apply the new name immediately
 - can relaunch itself through `steam://rungameid/...` after the rename flow when the app was originally started from Steam
+- uses a hidden external restart helper and exit cleanup guard so the app executable itself is less likely to leave Steam stuck on an active or closing status
 - creates desktop `.url` shortcuts that launch through `steam://rungameid/...`
 - offers a `Launch via Steam` action when the shortcut exists but the app was started outside Steam
 - opens Steam to the add-non-Steam-game flow when the app is not yet registered
@@ -75,12 +76,16 @@ If the app is not yet registered in Steam, it can open Steam to the add-game flo
 ### Rename and Steam restart behavior
 
 - A rename updates the matching shortcut entry and writes a fresh `shortcuts.vdf.bak` backup before saving.
-- The rename dialog now offers offline suggestions while you type, with keyboard-friendly autocomplete from an embedded curated console-exclusive list focused on well-known, well-reviewed games that still are not on PC.
+- The rename dialog offers hybrid suggestions while you type: immediate offline matches from the embedded curated console-exclusive list plus online Steam Store matches when available.
+- Online lookup uses the public Steam Store search API, so the desktop app does not need OAuth or a heavy auth flow just to provide live title suggestions.
+- Suggestion refresh is debounced, cancels stale requests, uses a short network timeout, and keeps a small in-memory cache of recent exact-query results.
 - Suggestions are assistive only: you can always ignore them and type any custom Steam name you want.
+- If the network or the Steam Store endpoint is unavailable, the dialog keeps working with offline suggestions only and manual custom names still work normally.
 - If Steam is not running, the rename is saved without starting Steam.
-- If Steam is running and no other Steam game is active, the app starts a helper relaunch flow so the name is applied immediately.
-- If the app was launched from Steam, that helper flow can close the current instance, restart Steam, and relaunch the app through `steam://rungameid/...`.
+- If Steam is running and no other Steam game is active, the app saves the rename immediately and then starts a hidden external restart helper so the name is applied without relaunching the app executable in helper mode.
+- If the app was launched from Steam, that helper can close the current instance, restart Steam, and relaunch the app through `steam://rungameid/...`.
 - If another Steam game is currently running, the rename is saved but Steam restart is skipped.
+- On a real app exit, the app also schedules a best-effort cleanup for a stale `RunningAppID` that still points at this shortcut after the process is gone.
 
 ### Desktop shortcut and add-game behavior
 
@@ -138,7 +143,8 @@ Current publish-related project settings:
 - `Workflows/RenameShortcutWorkflow.cs` — rename dialog and result handling
 - `Workflows/DesktopShortcutWorkflow.cs` — desktop shortcut flow
 - `Workflows/OpenSteamAddGameWorkflow.cs` — open-Steam add-game flow
-- `Workflows/SteamRestartWorkflow.cs` — rename + safe Steam restart / relaunch helper flow
+- `Workflows/SteamRestartWorkflow.cs` — rename + safe Steam restart / relaunch orchestration
+- `Infrastructure/SteamLifecycleGuard.cs` — hidden PowerShell helpers for safe Steam restart and stale running-state cleanup
 - `Infrastructure/SingleInstanceCoordinator.cs` — single-instance coordination and launch priority rules
 - `Infrastructure/LaunchContextDetector.cs` — detection of Steam-launched vs normal starts
 
