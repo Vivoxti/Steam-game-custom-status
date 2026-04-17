@@ -1,4 +1,3 @@
-using Microsoft.VisualBasic;
 using Wpf = System.Windows;
 
 namespace SteamGameCustomStatus;
@@ -15,17 +14,14 @@ internal static class RenameShortcutWorkflow
         }
 
         var currentName = lookupResult.CurrentName ?? "Steam Game Custom Status";
-        var newName = Interaction.InputBox(
-            "Enter a new display name for the non-Steam game in Steam.",
-            "Steam Game Custom Status",
-            currentName);
 
-        if (string.IsNullOrWhiteSpace(newName))
+        var dialog = new RenameDialog(currentName, owner);
+        if (dialog.ShowDialog() != true || string.IsNullOrWhiteSpace(dialog.ResultName))
         {
             return;
         }
 
-        newName = newName.Trim();
+        var newName = dialog.ResultName!.Trim();
         if (string.Equals(newName, currentName, StringComparison.Ordinal))
         {
             ShowMessage(owner, "The name was not changed.", Wpf.MessageBoxImage.Information);

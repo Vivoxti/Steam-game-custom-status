@@ -105,8 +105,11 @@ public partial class App : Wpf.Application
 
     private void RunRenameWorkflow()
     {
-        _mainWindow ??= new MainWindow();
-        RenameShortcutWorkflow.Run(_mainWindow);
+        var visibleOwner = _mainWindow is { IsVisible: true, WindowState: not Wpf.WindowState.Minimized }
+            ? _mainWindow
+            : null;
+
+        RenameShortcutWorkflow.Run(visibleOwner);
         RefreshTrayMenuState();
     }
 

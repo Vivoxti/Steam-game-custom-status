@@ -30,6 +30,22 @@ internal static class SteamRestartWorkflow
         }
 
         var shortcutInfo = shortcutInfoResult.ShortcutInfo;
+        var wasSteamRunning = IsSteamRunning();
+
+        if (!wasSteamRunning)
+        {
+            var renameResult = SteamShortcutRenamer.RenameCurrentShortcut(newName);
+            if (!renameResult.Success)
+            {
+                return RenameAndRestartResult.Failure(renameResult.Message);
+            }
+
+            return RenameAndRestartResult.Success(
+                renameResult.Message +
+                "\n\nSteam is not running, so the name was updated without starting Steam.",
+                shouldExitApplication: false);
+        }
+
         if (IsAnotherSteamGameRunning(shortcutInfo.AppId))
         {
             var renameResult = SteamShortcutRenamer.RenameCurrentShortcut(newName);
