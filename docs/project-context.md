@@ -1,6 +1,6 @@
 # Steam Game Custom Status — Project Context
 
-Internal reference for repository-aware assistance. This file is the canonical detailed project context and should stay aligned with [`../README.md`](../README.md) and [`../.github/copilot-instructions.md`](../.github/copilot-instructions.md).
+Internal reference for repository-aware assistance. This file is the canonical detailed project context and should stay aligned with [`../README.md`](../README.md).
 
 ## Agent snapshot
 
