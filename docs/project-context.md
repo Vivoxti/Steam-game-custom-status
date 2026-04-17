@@ -136,16 +136,27 @@ bin\Release\net10.0-windows\win-x64\publish\SteamGameCustomStatus.exe
 ## File map
 
 - `App.xaml` / `App.xaml.cs` — startup, tray icon, lifecycle, dynamic tray actions
-- `MainWindow.xaml` / `MainWindow.xaml.cs` — control window, status refresh, inline messages, and hide-to-tray behavior
-- `RenameDialog.xaml` / `RenameDialog.xaml.cs` — rename entry dialog
-- `SteamShortcutRenamer.cs` — `shortcuts.vdf` parsing, lookup, backup, update, desktop shortcut creation, and open-Steam helpers
-- `RenameShortcutWorkflow.cs` — rename workflow orchestration
-- `SteamRestartWorkflow.cs` — safe Steam restart and optional relaunch flow
-- `DesktopShortcutWorkflow.cs` — `steam://rungameid/...` desktop shortcut workflow
-- `OpenSteamAddGameWorkflow.cs` — opening Steam to add a non-Steam game
-- `SingleInstanceCoordinator.cs` — single-instance rules and instance priority handling
-- `LaunchContextDetector.cs` — detecting whether the app was launched through Steam or normally
+- `UI/Windows/MainWindow.xaml` / `UI/Windows/MainWindow.xaml.cs` — control window, status refresh, inline messages, and hide-to-tray behavior
+- `UI/Dialogs/RenameDialog.xaml` / `UI/Dialogs/RenameDialog.xaml.cs` — rename entry dialog
+- `Steam/SteamShortcutRenamer.cs` — `shortcuts.vdf` parsing, lookup, backup, update, desktop shortcut creation, and open-Steam helpers
+- `Workflows/RenameShortcutWorkflow.cs` — rename workflow orchestration
+- `Workflows/SteamRestartWorkflow.cs` — safe Steam restart and optional relaunch flow
+- `Workflows/DesktopShortcutWorkflow.cs` — `steam://rungameid/...` desktop shortcut workflow
+- `Workflows/OpenSteamAddGameWorkflow.cs` — opening Steam to add a non-Steam game
+- `Infrastructure/SingleInstanceCoordinator.cs` — single-instance rules and instance priority handling
+- `Infrastructure/LaunchContextDetector.cs` — detecting whether the app was launched through Steam or normally
+- `Properties/AssemblyInfo.cs` — WPF theme assembly metadata
+- `Assets/Icon.ico` — application icon used for publish output and tray branding
 - `SteamGameCustomStatus.csproj` — packaging and publish settings
+
+## Directory layout
+
+- `UI/` — WPF windows and dialogs
+- `Workflows/` — user-triggered flows that orchestrate UI and Steam operations
+- `Steam/` — Steam-specific parsing, lookup, and persistence logic
+- `Infrastructure/` — process-launch and single-instance helpers
+- `Properties/` — assembly-level metadata
+- `Assets/` — static application assets
 
 ## Known limitations
 

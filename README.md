@@ -83,10 +83,20 @@ Current publish-related project settings:
 ## Repository pointers
 
 - `App.xaml` / `App.xaml.cs` — startup, tray icon, lifecycle, dynamic tray actions
-- `MainWindow.xaml` / `MainWindow.xaml.cs` — compact control window and hide-to-tray behavior
-- `SteamShortcutRenamer.cs` — `shortcuts.vdf` lookup, backup creation, rename, and shortcut generation
-- `SteamRestartWorkflow.cs` — rename + safe Steam restart / relaunch flow
-- `SingleInstanceCoordinator.cs` — single-instance coordination and launch priority rules
+- `UI/Windows/MainWindow.xaml` / `UI/Windows/MainWindow.xaml.cs` — compact control window and hide-to-tray behavior
+- `UI/Dialogs/RenameDialog.xaml` / `UI/Dialogs/RenameDialog.xaml.cs` — rename dialog UI
+- `Steam/SteamShortcutRenamer.cs` — `shortcuts.vdf` lookup, backup creation, rename, and shortcut generation
+- `Workflows/SteamRestartWorkflow.cs` — rename + safe Steam restart / relaunch flow
+- `Infrastructure/SingleInstanceCoordinator.cs` — single-instance coordination and launch priority rules
 
-For deeper repository-specific context, see [`docs/project-context.md`](docs/project-context.md).
+## Project structure
+
+- `UI/` — WPF windows and dialogs
+- `Workflows/` — user-triggered application flows such as rename, Steam restart, and shortcut creation
+- `Steam/` — Steam-specific file parsing and shortcut operations
+- `Infrastructure/` — launch-context and single-instance coordination helpers
+- `Properties/` — assembly metadata
+- `Assets/` — application icon and other static assets
+
+For deeper repository-specific context, see [`docs/project-context.md`](./docs/project-context.md).
 

@@ -1,4 +1,8 @@
 using System;
+using SteamGameCustomStatus.Infrastructure;
+using SteamGameCustomStatus.Steam;
+using SteamGameCustomStatus.UI.Windows;
+using SteamGameCustomStatus.Workflows;
 using Drawing = System.Drawing;
 using Forms = System.Windows.Forms;
 using Wpf = System.Windows;
