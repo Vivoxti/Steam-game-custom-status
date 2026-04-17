@@ -42,8 +42,7 @@ internal static class SteamRestartWorkflow
             }
 
             return RenameAndRestartResult.Success(
-                renameResult.Message +
-                "\n\nSteam is not running, so the name was updated without starting Steam.",
+                renameResult.Message,
                 shouldExitApplication: false);
         }
 

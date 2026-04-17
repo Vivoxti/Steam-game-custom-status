@@ -86,7 +86,6 @@ internal static class SteamShortcutRenamer
         }
 
         var updatedEntries = 0;
-        var updatedFiles = 0;
 
         foreach (var shortcutFile in shortcutFiles)
         {
@@ -104,7 +103,6 @@ internal static class SteamShortcutRenamer
             CreateBackup(shortcutFile);
             file.Save(shortcutFile);
             updatedEntries += renamedInFile;
-            updatedFiles++;
         }
 
         if (updatedEntries == 0)
@@ -114,9 +112,7 @@ internal static class SteamShortcutRenamer
                 "Make sure Steam contains the currently published executable.");
         }
 
-        var message =
-            $"Name updated to \"{newName}\".\n" +
-            $"Entries changed: {updatedEntries}, shortcuts.vdf files updated: {updatedFiles}.";
+        var message = $"Name updated";
 
         return RenameResult.Successful(message);
     }

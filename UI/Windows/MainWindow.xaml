@@ -125,8 +125,16 @@
             CornerRadius="8"
             Effect="{StaticResource WinShadow}">
         <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
             <!-- Title bar -->
-            <DockPanel Height="40" VerticalAlignment="Top"
+            <DockPanel Grid.Row="0"
+                       Height="40"
+                       VerticalAlignment="Top"
                        MouseLeftButtonDown="TitleBar_OnMouseLeftButtonDown">
                 <Button DockPanel.Dock="Right" Margin="0,6,8,0" VerticalAlignment="Top"
                         Style="{StaticResource CloseBtn}" Click="Hide_Click" />
@@ -137,7 +145,9 @@
             </DockPanel>
 
             <!-- Content -->
-            <StackPanel Margin="28,52,28,14" VerticalAlignment="Top">
+            <StackPanel Grid.Row="1"
+                        Margin="28,12,28,0"
+                        VerticalAlignment="Top">
                 <TextBlock FontFamily="Segoe UI Variable Display, Segoe UI"
                            FontSize="22" FontWeight="SemiBold"
                            Foreground="{StaticResource TextPrimary}"
@@ -221,23 +231,28 @@
                             Style="{StaticResource AccentBtn}"
                             Click="OpenSteamAddGame_Click" />
                 </StackPanel>
-
-                <Border x:Name="InlineMessageCard"
-                        Margin="0,10,0,0"
-                        Padding="12,8"
-                        Background="{StaticResource SuccessBg}"
-                        BorderBrush="{StaticResource SuccessBorder}"
-                        BorderThickness="1"
-                        CornerRadius="8"
-                        Opacity="0"
-                        Visibility="Collapsed">
-                    <TextBlock x:Name="InlineMessageText"
-                               FontFamily="Segoe UI Variable Display, Segoe UI"
-                               FontSize="12"
-                               Foreground="{StaticResource SuccessText}"
-                               TextWrapping="Wrap" />
-                </Border>
             </StackPanel>
+
+            <Border x:Name="InlineMessageCard"
+                    Grid.Row="2"
+                    Margin="28,10,28,14"
+                    MaxHeight="64"
+                    Padding="12,8"
+                    Background="{StaticResource SuccessBg}"
+                    BorderBrush="{StaticResource SuccessBorder}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Opacity="0"
+                    ToolTipService.ShowDuration="60000"
+                    Visibility="Collapsed">
+                <TextBlock x:Name="InlineMessageText"
+                           FontFamily="Segoe UI Variable Display, Segoe UI"
+                           FontSize="12"
+                           Foreground="{StaticResource SuccessText}"
+                           MaxHeight="46"
+                           TextTrimming="WordEllipsis"
+                           TextWrapping="Wrap" />
+            </Border>
         </Grid>
     </Border>
 </Window>

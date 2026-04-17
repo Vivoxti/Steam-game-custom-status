@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using SteamGameCustomStatus.Steam;
 using SteamGameCustomStatus.Workflows;
@@ -18,7 +19,9 @@ public partial class MainWindow : Wpf.Window
 
     private bool _forceClose;
     private readonly Threading.DispatcherTimer _inlineMessageTimer;
-    private int _inlineMessageVersion;
+    private readonly Queue<InlineMessageRequest> _inlineMessageQueue = new();
+    private InlineMessageRequest? _activeInlineMessage;
+    private bool _isInlineMessageHiding;
 
     public MainWindow()
     {
@@ -80,20 +83,52 @@ public partial class MainWindow : Wpf.Window
         RenameShortcutWorkflow.Run(this);
     }
 
-    public void ShowInlineMessage(string message, bool isWarning = false)
+    public void ShowInlineMessage(string message, bool isWarning = false, Action? onDismissed = null)
     {
-        var backgroundResourceKey = isWarning ? "WarningBg" : "SuccessBg";
-        var borderResourceKey = isWarning ? "WarningBorder" : "SuccessBorder";
-        var foregroundResourceKey = isWarning ? "WarningText" : "SuccessText";
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            return;
+        }
 
-        _inlineMessageVersion++;
+        _inlineMessageQueue.Enqueue(new InlineMessageRequest(message, isWarning, onDismissed));
+
+        if (_activeInlineMessage is null && !_isInlineMessageHiding)
+        {
+            ShowNextInlineMessage();
+        }
+    }
+
+    public void HideInlineMessage()
+    {
+        if (_activeInlineMessage is null || _isInlineMessageHiding)
+        {
+            return;
+        }
+
+        HideActiveInlineMessage();
+    }
+
+    private void ShowNextInlineMessage()
+    {
+        if (_activeInlineMessage is not null || _isInlineMessageHiding || _inlineMessageQueue.Count == 0)
+        {
+            return;
+        }
+
+        _activeInlineMessage = _inlineMessageQueue.Dequeue();
         ResetInlineMessageTimer();
         StopInlineMessageAnimations();
+
+        var backgroundResourceKey = _activeInlineMessage.IsWarning ? "WarningBg" : "SuccessBg";
+        var borderResourceKey = _activeInlineMessage.IsWarning ? "WarningBorder" : "SuccessBorder";
+        var foregroundResourceKey = _activeInlineMessage.IsWarning ? "WarningText" : "SuccessText";
 
         InlineMessageCard.Background = (Media.Brush)FindResource(backgroundResourceKey);
         InlineMessageCard.BorderBrush = (Media.Brush)FindResource(borderResourceKey);
         InlineMessageText.Foreground = (Media.Brush)FindResource(foregroundResourceKey);
-        InlineMessageText.Text = message;
+        InlineMessageText.Text = _activeInlineMessage.Message;
+        InlineMessageCard.ToolTip = _activeInlineMessage.Message;
+        InlineMessageText.ToolTip = _activeInlineMessage.Message;
         InlineMessageCard.Opacity = 0;
         InlineMessageCard.Visibility = Wpf.Visibility.Visible;
 
@@ -106,50 +141,60 @@ public partial class MainWindow : Wpf.Window
         _inlineMessageTimer.Start();
     }
 
-    public void HideInlineMessage()
-    {
-        var expectedVersion = _inlineMessageVersion;
-        HideInlineMessage(expectedVersion);
-    }
-
-    private void HideInlineMessage(int expectedVersion)
+    private void HideActiveInlineMessage()
     {
         ResetInlineMessageTimer();
 
-        if (InlineMessageCard.Visibility != Wpf.Visibility.Visible)
+        if (_activeInlineMessage is null)
         {
-            InlineMessageText.Text = string.Empty;
-            InlineMessageCard.Opacity = 0;
-            InlineMessageCard.Visibility = Wpf.Visibility.Collapsed;
             return;
         }
 
+        _isInlineMessageHiding = true;
 
+        if (InlineMessageCard.Visibility != Wpf.Visibility.Visible)
+        {
+            CompleteInlineMessageHide();
+            return;
+        }
+
+        StopInlineMessageAnimations();
         var fadeOutAnimation = new Animation.DoubleAnimation(0, InlineMessageFadeOutDuration)
         {
             EasingFunction = new Animation.SineEase { EasingMode = Animation.EasingMode.EaseInOut }
         };
 
-        fadeOutAnimation.Completed += (_, _) =>
-        {
-            if (expectedVersion != _inlineMessageVersion)
-            {
-                return;
-            }
-
-            StopInlineMessageAnimations();
-            InlineMessageText.Text = string.Empty;
-            InlineMessageCard.Opacity = 0;
-            InlineMessageCard.Visibility = Wpf.Visibility.Collapsed;
-        };
+        fadeOutAnimation.Completed += (_, _) => CompleteInlineMessageHide();
 
         InlineMessageCard.BeginAnimation(Wpf.UIElement.OpacityProperty, fadeOutAnimation);
     }
 
+    private void CompleteInlineMessageHide()
+    {
+        StopInlineMessageAnimations();
+        InlineMessageText.Text = string.Empty;
+        InlineMessageText.ToolTip = null;
+        InlineMessageCard.Opacity = 0;
+        InlineMessageCard.ToolTip = null;
+        InlineMessageCard.Visibility = Wpf.Visibility.Collapsed;
+
+        var dismissedAction = _activeInlineMessage?.OnDismissed;
+        _activeInlineMessage = null;
+        _isInlineMessageHiding = false;
+
+        dismissedAction?.Invoke();
+
+        if ((Wpf.Application.Current as App)?.IsExiting == true)
+        {
+            return;
+        }
+
+        ShowNextInlineMessage();
+    }
+
     private void InlineMessageTimer_Tick(object? sender, EventArgs e)
     {
-        var expectedVersion = _inlineMessageVersion;
-        HideInlineMessage(expectedVersion);
+        HideInlineMessage();
     }
 
     private void ResetInlineMessageTimer()
@@ -161,6 +206,8 @@ public partial class MainWindow : Wpf.Window
     {
         InlineMessageCard.BeginAnimation(Wpf.UIElement.OpacityProperty, null);
     }
+
+    private sealed record InlineMessageRequest(string Message, bool IsWarning, Action? OnDismissed);
 
     private void RenameButton_Click(object sender, Wpf.RoutedEventArgs e)
     {

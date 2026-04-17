@@ -113,7 +113,8 @@ public partial class App : Wpf.Application
             ? _mainWindow
             : null;
 
-        RenameShortcutWorkflow.Run(visibleOwner);
+        var suppressWindowForSilentResult = visibleOwner is null;
+        RenameShortcutWorkflow.Run(visibleOwner, suppressWindowForSilentResult);
         RefreshTrayMenuState();
     }
 
@@ -122,11 +123,16 @@ public partial class App : Wpf.Application
         var result = SteamShortcutRenamer.CreateDesktopShortcutForCurrentShortcut();
         if (!result.Success)
         {
-            ShowMainWindow();
-            _mainWindow?.ShowInlineMessage(result.Message, isWarning: true);
+            ShowMainWindowInlineMessage(result.Message, isWarning: true);
         }
 
         RefreshTrayMenuState();
+    }
+
+    internal void ShowMainWindowInlineMessage(string message, bool isWarning = false, Action? onDismissed = null)
+    {
+        ShowMainWindow();
+        _mainWindow?.ShowInlineMessage(message, isWarning, onDismissed);
     }
 
     public void RefreshTrayMenuState()
