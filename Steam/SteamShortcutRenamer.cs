@@ -196,6 +196,44 @@ internal static class SteamShortcutRenamer
         }
     }
 
+    internal static bool TryClearRunningAppId(uint expectedAppId)
+    {
+        if (expectedAppId == 0)
+        {
+            return false;
+        }
+
+        try
+        {
+            using var steamKey = Registry.CurrentUser.OpenSubKey(@"Software\Valve\Steam", writable: true);
+            if (steamKey is null)
+            {
+                return false;
+            }
+
+            var rawValue = steamKey.GetValue("RunningAppID");
+            var currentAppId = rawValue switch
+            {
+                int intValue when intValue >= 0 => unchecked((uint)intValue),
+                long longValue when longValue >= 0 && longValue <= uint.MaxValue => (uint)longValue,
+                string stringValue when uint.TryParse(stringValue, out var parsed) => parsed,
+                _ => 0u
+            };
+
+            if (currentAppId != expectedAppId)
+            {
+                return false;
+            }
+
+            steamKey.SetValue("RunningAppID", 0, RegistryValueKind.DWord);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     public static OperationResult CreateDesktopShortcutForCurrentShortcut()
     {
         var shortcutInfoResult = FindCurrentShortcutInfo();
@@ -766,6 +804,25 @@ internal static class SteamShortcutRenamer
 
     internal sealed record ShortcutInfo(string AppName, uint AppId, ulong RunGameId);
 
+    private static uint ComputeNonSteamShortcutAppId(string executableValue, string appName)
+    {
+        var payload = string.Concat(executableValue, appName);
+        var bytes = Encoding.UTF8.GetBytes(payload);
+        var crc = 0xFFFFFFFFu;
+
+        foreach (var currentByte in bytes)
+        {
+            crc ^= currentByte;
+            for (var bit = 0; bit < 8; bit++)
+            {
+                var mask = (crc & 1u) != 0 ? 0xEDB88320u : 0u;
+                crc = (crc >> 1) ^ mask;
+            }
+        }
+
+        return (~crc) | 0x80000000u;
+    }
+
     private sealed class SteamShortcutsFile
     {
         private const byte ObjectType = 0x00;
@@ -842,6 +899,7 @@ internal static class SteamShortcutRenamer
                 }
 
                 entry.SetAppName(newName);
+                entry.RefreshAppId();
                 renamedEntries++;
             }
 
@@ -969,6 +1027,8 @@ internal static class SteamShortcutRenamer
 
             public uint? AppId => GetUInt32("appid");
 
+            private string? ExecutableValue => GetString("Exe") ?? GetString("exe");
+
             public bool MatchesExecutablePath(string normalizedExecutablePath)
             {
                 var entryExecutablePath = GetString("Exe") ?? GetString("exe");
@@ -989,6 +1049,18 @@ internal static class SteamShortcutRenamer
                 }
 
                 _entryObject.Properties.Insert(0, new VdfProperty(StringType, "AppName", newName));
+            }
+
+            public void RefreshAppId()
+            {
+                var executableValue = ExecutableValue;
+                var appName = AppName;
+                if (string.IsNullOrWhiteSpace(executableValue) || string.IsNullOrWhiteSpace(appName))
+                {
+                    return;
+                }
+
+                SetUInt32("appid", ComputeNonSteamShortcutAppId(executableValue, appName));
             }
 
             public ShortcutInfo ToShortcutInfo()
@@ -1040,6 +1112,24 @@ internal static class SteamShortcutRenamer
                 }
 
                 return null;
+            }
+
+            private void SetUInt32(string name, uint value)
+            {
+                var intValue = unchecked((int)value);
+                for (var i = 0; i < _entryObject.Properties.Count; i++)
+                {
+                    var property = _entryObject.Properties[i];
+                    if (property.Type != Int32Type || !string.Equals(property.Name, name, StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    _entryObject.Properties[i] = property with { Value = intValue };
+                    return;
+                }
+
+                _entryObject.Properties.Add(new VdfProperty(Int32Type, name, intValue));
             }
         }
 

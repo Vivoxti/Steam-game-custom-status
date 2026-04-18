@@ -8,13 +8,13 @@ internal static class SteamRestartWorkflow
 {
     public static RenameAndRestartResult RunAfterRename(string newName, bool isSteamLaunch)
     {
-        var shortcutInfoResult = SteamShortcutRenamer.GetCurrentShortcutInfoForLaunch();
-        if (!shortcutInfoResult.Success || shortcutInfoResult.ShortcutInfo is null)
+        var preRenameShortcutInfoResult = SteamShortcutRenamer.GetCurrentShortcutInfoForLaunch();
+        if (!preRenameShortcutInfoResult.Success || preRenameShortcutInfoResult.ShortcutInfo is null)
         {
-            return RenameAndRestartResult.Failure(shortcutInfoResult.Message);
+            return RenameAndRestartResult.Failure(preRenameShortcutInfoResult.Message);
         }
 
-        var shortcutInfo = shortcutInfoResult.ShortcutInfo;
+        var preRenameShortcutInfo = preRenameShortcutInfoResult.ShortcutInfo;
         var wasSteamRunning = IsSteamRunning();
         var renameResult = SteamShortcutRenamer.RenameCurrentShortcut(newName);
         if (!renameResult.Success)
@@ -29,7 +29,7 @@ internal static class SteamRestartWorkflow
                 shouldExitApplication: false);
         }
 
-        if (IsAnotherSteamGameRunning(shortcutInfo.AppId))
+        if (IsAnotherSteamGameRunning(preRenameShortcutInfo.AppId))
         {
             return RenameAndRestartResult.Warning(
                 renameResult.Message +
@@ -37,9 +37,19 @@ internal static class SteamRestartWorkflow
                 "Close that game and restart Steam later to see the new name.");
         }
 
+        var postRenameShortcutInfoResult = SteamShortcutRenamer.GetCurrentShortcutInfoForLaunch();
+        if (!postRenameShortcutInfoResult.Success || postRenameShortcutInfoResult.ShortcutInfo is null)
+        {
+            return RenameAndRestartResult.Warning(
+                renameResult.Message +
+                "\n\nSteam could not refresh the renamed shortcut information automatically. Restart Steam manually and launch the renamed shortcut again.");
+        }
+
+        var postRenameShortcutInfo = postRenameShortcutInfoResult.ShortcutInfo;
+
         if (!SteamLifecycleGuard.TryStartSteamRestartHelper(
                 SteamShortcutRenamer.GetSteamExecutablePath(),
-                relaunchRunGameId: isSteamLaunch ? shortcutInfo.RunGameId : null,
+                relaunchRunGameId: isSteamLaunch ? postRenameShortcutInfo.RunGameId : null,
                 waitForExitProcessId: isSteamLaunch ? Environment.ProcessId : null))
         {
             return RenameAndRestartResult.Warning(

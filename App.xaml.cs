@@ -30,10 +30,12 @@ public partial class App : Wpf.Application
     private Drawing.Icon? _activeTrayIcon;
     private Drawing.Icon? _inactiveTrayIcon;
     private DateTime? _steamLaunchActiveGraceDeadlineUtc;
+    private uint _steamSessionAppId;
     private bool _isSteamLaunch;
     private bool _isExiting;
     private bool _skipSteamExitCleanup;
     private bool _steamExitCleanupScheduled;
+    private bool _directRunningAppIdCleared;
 
     protected override void OnStartup(Wpf.StartupEventArgs e)
     {
@@ -45,6 +47,7 @@ public partial class App : Wpf.Application
         _steamLaunchActiveGraceDeadlineUtc = _isSteamLaunch
             ? DateTime.UtcNow.Add(SteamLaunchActiveGracePeriod)
             : null;
+        CaptureSteamSessionAppId(SteamShortcutRenamer.GetRunningSteamAppId());
         _singleInstanceCoordinator = new SingleInstanceCoordinator(HandleInstanceStartupRequest);
 
         var startupResult = _singleInstanceCoordinator.RegisterCurrentInstance(_isSteamLaunch);
@@ -60,6 +63,7 @@ public partial class App : Wpf.Application
     protected override void OnExit(Wpf.ExitEventArgs e)
     {
         EnsureSteamExitCleanupScheduled();
+        TryClearRunningAppIdDirect();
 
         if (_activeTrayRefreshTimer is not null)
         {
@@ -259,8 +263,10 @@ public partial class App : Wpf.Application
             return false;
         }
 
+        var shortcutAppId = shortcutInfoResult.ShortcutInfo.AppId;
         var runningAppId = SteamShortcutRenamer.GetRunningSteamAppId();
-        if (runningAppId != 0 && runningAppId == shortcutInfoResult.ShortcutInfo.AppId)
+        var expectedAppId = GetExpectedSteamAppId(shortcutAppId, runningAppId);
+        if (runningAppId != 0 && expectedAppId != 0 && runningAppId == expectedAppId)
         {
             return true;
         }
@@ -361,6 +367,7 @@ public partial class App : Wpf.Application
         _isExiting = true;
         _skipSteamExitCleanup = skipSteamExitCleanup;
         EnsureSteamExitCleanupScheduled();
+        TryClearRunningAppIdDirect();
         _mainWindow?.ForceClose();
         Shutdown();
     }
@@ -372,25 +379,85 @@ public partial class App : Wpf.Application
             return;
         }
 
-        var shortcutInfoResult = SteamShortcutRenamer.GetCurrentShortcutInfoForLaunch();
-        if (!shortcutInfoResult.Success || shortcutInfoResult.ShortcutInfo is null)
+        var runningAppId = SteamShortcutRenamer.GetRunningSteamAppId();
+        if (runningAppId == 0)
         {
             return;
         }
 
-        var shortcutAppId = shortcutInfoResult.ShortcutInfo.AppId;
-        if (shortcutAppId == 0)
+        var cleanupAppId = ResolveCleanupAppId(runningAppId);
+        if (cleanupAppId == 0)
+        {
+            return;
+        }
+
+        _steamExitCleanupScheduled = SteamLifecycleGuard.TryScheduleRunningAppIdCleanup(Environment.ProcessId, cleanupAppId);
+    }
+
+    private uint ResolveCleanupAppId(uint runningAppId)
+    {
+        if (_steamSessionAppId != 0 && runningAppId == _steamSessionAppId)
+        {
+            return runningAppId;
+        }
+
+        var shortcutInfoResult = SteamShortcutRenamer.GetCurrentShortcutInfoForLaunch();
+        if (shortcutInfoResult.Success && shortcutInfoResult.ShortcutInfo is not null)
+        {
+            var shortcutAppId = shortcutInfoResult.ShortcutInfo.AppId;
+            if (runningAppId == shortcutAppId)
+            {
+                return runningAppId;
+            }
+        }
+
+        if (_isSteamLaunch)
+        {
+            return runningAppId;
+        }
+
+        return 0;
+    }
+
+    private void TryClearRunningAppIdDirect()
+    {
+        if (_skipSteamExitCleanup || _directRunningAppIdCleared)
         {
             return;
         }
 
         var runningAppId = SteamShortcutRenamer.GetRunningSteamAppId();
-        if (!_isSteamLaunch && runningAppId != shortcutAppId)
+        if (runningAppId == 0)
         {
             return;
         }
 
-        _steamExitCleanupScheduled = SteamLifecycleGuard.TryScheduleRunningAppIdCleanup(Environment.ProcessId, shortcutAppId);
+        var cleanupAppId = ResolveCleanupAppId(runningAppId);
+        if (cleanupAppId == 0)
+        {
+            return;
+        }
+
+        _directRunningAppIdCleared = SteamShortcutRenamer.TryClearRunningAppId(cleanupAppId);
+    }
+
+    private uint GetExpectedSteamAppId(uint shortcutAppId, uint runningAppId)
+    {
+        CaptureSteamSessionAppId(runningAppId);
+        return _steamSessionAppId != 0 ? _steamSessionAppId : shortcutAppId;
+    }
+
+    private void CaptureSteamSessionAppId(uint runningAppId)
+    {
+        if (!_isSteamLaunch || _steamSessionAppId != 0 || runningAppId == 0)
+        {
+            return;
+        }
+
+        if (_steamLaunchActiveGraceDeadlineUtc is { } graceDeadline && DateTime.UtcNow <= graceDeadline)
+        {
+            _steamSessionAppId = runningAppId;
+        }
     }
 
     public bool IsExiting => _isExiting;

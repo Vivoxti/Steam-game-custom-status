@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Text;
 
 namespace SteamGameCustomStatus.Infrastructure;
@@ -157,9 +158,67 @@ internal static class SteamLifecycleGuard
         try
         {
             var encodedCommand = Convert.ToBase64String(Encoding.Unicode.GetBytes(script));
+            var powerShellPath = GetPowerShellExecutablePath();
+
+            if (TryStartWithBreakawayFromJob(powerShellPath, encodedCommand))
+            {
+                return true;
+            }
+
+            return TryStartWithProcessStart(powerShellPath, encodedCommand);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool TryStartWithBreakawayFromJob(string powerShellPath, string encodedCommand)
+    {
+        try
+        {
+            var commandLine = BuildPowerShellCommandLine(powerShellPath, encodedCommand);
+
+            var startupInfo = new STARTUPINFOW();
+            startupInfo.cb = Marshal.SizeOf<STARTUPINFOW>();
+
+            const uint CREATE_BREAKAWAY_FROM_JOB = 0x01000000;
+            const uint CREATE_NO_WINDOW = 0x08000000;
+
+            var success = CreateProcessW(
+                null,
+                commandLine,
+                IntPtr.Zero,
+                IntPtr.Zero,
+                false,
+                CREATE_BREAKAWAY_FROM_JOB | CREATE_NO_WINDOW,
+                IntPtr.Zero,
+                null,
+                ref startupInfo,
+                out var processInfo);
+
+            if (success)
+            {
+                CloseHandle(processInfo.hProcess);
+                CloseHandle(processInfo.hThread);
+                return true;
+            }
+
+            return false;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool TryStartWithProcessStart(string powerShellPath, string encodedCommand)
+    {
+        try
+        {
             var startInfo = new ProcessStartInfo
             {
-                FileName = GetPowerShellExecutablePath(),
+                FileName = powerShellPath,
                 UseShellExecute = false,
                 CreateNoWindow = true,
                 WindowStyle = ProcessWindowStyle.Hidden
@@ -180,6 +239,15 @@ internal static class SteamLifecycleGuard
         }
     }
 
+    private static string BuildPowerShellCommandLine(string powerShellPath, string encodedCommand)
+    {
+        var sb = new StringBuilder();
+        sb.Append('"').Append(powerShellPath).Append('"');
+        sb.Append(" -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand ");
+        sb.Append(encodedCommand);
+        return sb.ToString();
+    }
+
     private static string GetPowerShellExecutablePath()
     {
         var systemPowerShellPath = Path.Combine(
@@ -197,5 +265,52 @@ internal static class SteamLifecycleGuard
     {
         return $"'{value.Replace("'", "''", StringComparison.Ordinal)}'";
     }
-}
 
+    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    private static extern bool CreateProcessW(
+        string? lpApplicationName,
+        string lpCommandLine,
+        IntPtr lpProcessAttributes,
+        IntPtr lpThreadAttributes,
+        bool bInheritHandles,
+        uint dwCreationFlags,
+        IntPtr lpEnvironment,
+        string? lpCurrentDirectory,
+        ref STARTUPINFOW lpStartupInfo,
+        out PROCESS_INFORMATION lpProcessInformation);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool CloseHandle(IntPtr hObject);
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    private struct STARTUPINFOW
+    {
+        public int cb;
+        public IntPtr lpReserved;
+        public IntPtr lpDesktop;
+        public IntPtr lpTitle;
+        public int dwX;
+        public int dwY;
+        public int dwXSize;
+        public int dwYSize;
+        public int dwXCountChars;
+        public int dwYCountChars;
+        public int dwFillAttribute;
+        public int dwFlags;
+        public short wShowWindow;
+        public short cbReserved2;
+        public IntPtr lpReserved2;
+        public IntPtr hStdInput;
+        public IntPtr hStdOutput;
+        public IntPtr hStdError;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct PROCESS_INFORMATION
+    {
+        public IntPtr hProcess;
+        public IntPtr hThread;
+        public int dwProcessId;
+        public int dwThreadId;
+    }
+}
