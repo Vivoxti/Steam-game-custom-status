@@ -4,6 +4,10 @@ Minimal tray-first Windows app for people who run it through Steam as a `non-Ste
 
 It stays out of the way, lives in the system tray, shows whether the current build is registered in Steam, and lets you rename the matching shortcut without digging through `shortcuts.vdf` manually.
 
+![Steam Game Custom Status main window](./docs/images/ReadmeUI.png)
+
+_Compact main window for Steam status, rename, and quick actions._
+
 ## Highlights
 
 - **Tray-first by design** — starts in the tray and closing the window hides it back there
@@ -49,15 +53,6 @@ bin\Release\net10.0-windows\win-x64\publish\SteamGameCustomStatus.exe
 - `.NET 10`
 - `WPF`
 - `Windows Forms NotifyIcon`
-
-## Project map
-
-- `App.xaml` / `App.xaml.cs` — startup, tray icon, lifecycle
-- `UI/Windows/MainWindow.xaml` / `UI/Windows/MainWindow.xaml.cs` — compact control window and Steam state UI
-- `UI/Dialogs/RenameDialog.xaml` / `UI/Dialogs/RenameDialog.xaml.cs` — rename dialog and suggestions UI
-- `Steam/SteamShortcutRenamer.cs` — `shortcuts.vdf` lookup, backup, rename, launch metadata, and helpers
-- `Workflows/` — rename, restart, desktop shortcut, and open-Steam flows
-- `Infrastructure/` — single-instance and launch-context coordination
 
 ## More context
 
