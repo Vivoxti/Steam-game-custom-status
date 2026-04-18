@@ -42,7 +42,7 @@ internal static class RenameShortcutWorkflow
         var result = SteamRestartWorkflow.RunAfterRename(newName, app?.IsSteamLaunch ?? LaunchContextDetector.IsSteamLaunch());
         var isWarning = !result.IsSuccess || result.IsWarning;
 
-        if (suppressWindowForSilentResult && owner is null && result.IsSuccess && !result.IsWarning)
+        if (suppressWindowForSilentResult && owner is null && result is { IsSuccess: true, IsWarning: false })
         {
             if (result.ShouldExitApplication)
             {

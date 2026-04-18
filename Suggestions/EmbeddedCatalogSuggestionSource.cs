@@ -6,14 +6,14 @@ using System.Text.RegularExpressions;
 
 namespace SteamGameCustomStatus.Suggestions;
 
-internal sealed class EmbeddedCatalogSuggestionSource : IGameNameSuggestionSource
+internal sealed partial class EmbeddedCatalogSuggestionSource : IGameNameSuggestionSource
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
         PropertyNameCaseInsensitive = true
     };
 
-    private static readonly Regex NonLetterOrDigitRegex = new("[^\\p{L}\\p{Nd}]+", RegexOptions.Compiled);
+    private static readonly Regex NonLetterOrDigitRegex = MyRegex();
     private readonly string _resourceName;
     private readonly string _sourceLabel;
     private readonly Lazy<IReadOnlyList<CatalogEntry>> _catalog;
@@ -155,6 +155,9 @@ internal sealed class EmbeddedCatalogSuggestionSource : IGameNameSuggestionSourc
     }
 
     private sealed record CatalogEntry(string Title, string Platform);
+
+    [GeneratedRegex(@"[^\p{L}\p{Nd}]+", RegexOptions.Compiled)]
+    private static partial Regex MyRegex();
 }
 
 

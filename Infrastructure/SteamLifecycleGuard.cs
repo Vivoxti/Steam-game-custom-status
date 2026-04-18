@@ -179,8 +179,10 @@ internal static class SteamLifecycleGuard
         {
             var commandLine = BuildPowerShellCommandLine(powerShellPath, encodedCommand);
 
-            var startupInfo = new STARTUPINFOW();
-            startupInfo.cb = Marshal.SizeOf<STARTUPINFOW>();
+            var startupInfo = new STARTUPINFOW
+            {
+                cb = Marshal.SizeOf<STARTUPINFOW>()
+            };
 
             const uint CREATE_BREAKAWAY_FROM_JOB = 0x01000000;
             const uint CREATE_NO_WINDOW = 0x08000000;

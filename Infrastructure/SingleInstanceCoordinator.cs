@@ -83,7 +83,7 @@ internal sealed class SingleInstanceCoordinator : IDisposable
     {
         while (!cancellationToken.IsCancellationRequested)
         {
-            using var server = new NamedPipeServerStream(
+            await using var server = new NamedPipeServerStream(
                 _pipeName,
                 PipeDirection.InOut,
                 1,
@@ -106,9 +106,9 @@ internal sealed class SingleInstanceCoordinator : IDisposable
             try
             {
                 using var reader = new StreamReader(server, Encoding.UTF8, false, 1024, true);
-                using var writer = CreateAutoFlushWriter(server);
+                await using var writer = CreateAutoFlushWriter(server);
 
-                var requestLine = await reader.ReadLineAsync().ConfigureAwait(false);
+                var requestLine = await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false);
                 var request = string.IsNullOrWhiteSpace(requestLine)
                     ? null
                     : JsonSerializer.Deserialize<InstanceStartupRequest>(requestLine, JsonOptions);
@@ -154,12 +154,9 @@ internal sealed class SingleInstanceCoordinator : IDisposable
                 writer.WriteLine(requestLine);
 
                 var responseLine = reader.ReadLine();
-                if (string.IsNullOrWhiteSpace(responseLine))
-                {
-                    return null;
-                }
-
-                return JsonSerializer.Deserialize<InstanceStartupResponse>(responseLine, JsonOptions);
+                return string.IsNullOrWhiteSpace(responseLine) 
+                    ? null 
+                    : JsonSerializer.Deserialize<InstanceStartupResponse>(responseLine, JsonOptions);
             }
             catch (TimeoutException)
             {

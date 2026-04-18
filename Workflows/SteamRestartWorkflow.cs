@@ -93,6 +93,7 @@ internal static class SteamRestartWorkflow
             }
             catch
             {
+                // ignored
             }
             finally
             {

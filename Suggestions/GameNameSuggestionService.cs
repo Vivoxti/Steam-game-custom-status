@@ -1,13 +1,8 @@
 namespace SteamGameCustomStatus.Suggestions;
 
-internal sealed class GameNameSuggestionService
+internal sealed class GameNameSuggestionService(IEnumerable<IGameNameSuggestionSource> sources)
 {
-    private readonly IReadOnlyList<IGameNameSuggestionSource> _sources;
-
-    public GameNameSuggestionService(IEnumerable<IGameNameSuggestionSource> sources)
-    {
-        _sources = sources.ToArray();
-    }
+    private readonly IReadOnlyList<IGameNameSuggestionSource> _sources = sources.ToArray();
 
     public static GameNameSuggestionService Default { get; } = new([
         new EmbeddedCatalogSuggestionSource(

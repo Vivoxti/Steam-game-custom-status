@@ -6,7 +6,7 @@ using WpfInput = System.Windows.Input;
 
 namespace SteamGameCustomStatus.UI.Dialogs;
 
-public partial class RenameDialog : Window
+public partial class RenameDialog
 {
     private static readonly TimeSpan SuggestionRefreshDelay = TimeSpan.FromMilliseconds(280);
     private const int MaxSuggestionCount = 8;

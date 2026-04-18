@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using System.ComponentModel;
 using SteamGameCustomStatus.Steam;
 using SteamGameCustomStatus.Workflows;
@@ -11,7 +9,7 @@ using Wpf = System.Windows;
 
 namespace SteamGameCustomStatus.UI.Windows;
 
-public partial class MainWindow : Wpf.Window
+public partial class MainWindow
 {
     private static readonly TimeSpan InlineMessageDisplayDuration = TimeSpan.FromSeconds(4);
     private static readonly Wpf.Duration InlineMessageFadeInDuration = new(TimeSpan.FromMilliseconds(220));

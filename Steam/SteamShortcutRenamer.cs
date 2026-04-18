@@ -13,23 +13,21 @@ internal static class SteamShortcutRenamer
     public static ShortcutRegistrationStatus GetCurrentShortcutRegistrationStatus()
     {
         var shortcutInfoResult = FindCurrentShortcutInfo();
-        if (shortcutInfoResult.Success && shortcutInfoResult.ShortcutInfo is not null)
-        {
-            var currentName = string.IsNullOrWhiteSpace(shortcutInfoResult.ShortcutInfo.AppName)
-                ? null
-                : shortcutInfoResult.ShortcutInfo.AppName;
+        if (!shortcutInfoResult.Success || shortcutInfoResult.ShortcutInfo is null)
+            return ShortcutRegistrationStatus.NotRegistered(
+                "The current executable was not found among Steam non-Steam games.",
+                "Tip: add the published executable of this app to Steam as a non-Steam game, not a Debug build or a copy from another folder.",
+                shortcutInfoResult.Message);
+        var currentName = string.IsNullOrWhiteSpace(shortcutInfoResult.ShortcutInfo.AppName)
+            ? null
+            : shortcutInfoResult.ShortcutInfo.AppName;
 
-            var description = currentName is null
-                ? "The current executable was found among Steam non-Steam games."
-                : $"Name: {currentName}";
+        var description = currentName is null
+            ? "The current executable was found among Steam non-Steam games."
+            : $"Name: {currentName}";
 
-            return ShortcutRegistrationStatus.Registered(description, currentName);
-        }
+        return ShortcutRegistrationStatus.Registered(description, currentName);
 
-        return ShortcutRegistrationStatus.NotRegistered(
-            "The current executable was not found among Steam non-Steam games.",
-            "Tip: add the published executable of this app to Steam as a non-Steam game, not a Debug build or a copy from another folder.",
-            shortcutInfoResult.Message);
     }
 
     public static RenameLookupResult FindCurrentShortcut()
@@ -184,8 +182,8 @@ internal static class SteamShortcutRenamer
             var rawValue = steamKey?.GetValue("RunningAppID");
             return rawValue switch
             {
-                int intValue when intValue >= 0 => unchecked((uint)intValue),
-                long longValue when longValue >= 0 && longValue <= uint.MaxValue => (uint)longValue,
+                int intValue and >= 0 => unchecked((uint)intValue),
+                long longValue and >= 0 and <= uint.MaxValue => (uint)longValue,
                 string stringValue when uint.TryParse(stringValue, out var parsed) => parsed,
                 _ => 0
             };
@@ -214,8 +212,8 @@ internal static class SteamShortcutRenamer
             var rawValue = steamKey.GetValue("RunningAppID");
             var currentAppId = rawValue switch
             {
-                int intValue when intValue >= 0 => unchecked((uint)intValue),
-                long longValue when longValue >= 0 && longValue <= uint.MaxValue => (uint)longValue,
+                int intValue and >= 0 => unchecked((uint)intValue),
+                long longValue and >= 0 and <= uint.MaxValue => (uint)longValue,
                 string stringValue when uint.TryParse(stringValue, out var parsed) => parsed,
                 _ => 0u
             };
@@ -422,6 +420,7 @@ internal static class SteamShortcutRenamer
         }
         catch
         {
+            // ignored
         }
 
         var defaultSteamPath = Path.Combine(
@@ -444,6 +443,7 @@ internal static class SteamShortcutRenamer
         }
         catch
         {
+            // ignored
         }
 
         var steamPath = TryGetSteamPath();
@@ -604,7 +604,7 @@ internal static class SteamShortcutRenamer
         {
             var existingLines = File.ReadAllLines(shortcutPath);
             var existingUrlLine = existingLines.FirstOrDefault(line => line.StartsWith("URL=", StringComparison.OrdinalIgnoreCase));
-            url = existingUrlLine is null ? null : existingUrlLine[4..].Trim();
+            url = existingUrlLine?[4..]?.Trim();
             return !string.IsNullOrWhiteSpace(url);
         }
         catch
@@ -995,7 +995,7 @@ internal static class SteamShortcutRenamer
         {
             var trimmed = path.Trim();
 
-            if (trimmed.Length >= 2 && trimmed[0] == '"' && trimmed.Contains("\" ", StringComparison.Ordinal))
+            if (trimmed is ['"', _, ..] && trimmed.Contains("\" ", StringComparison.Ordinal))
             {
                 var closingQuoteIndex = trimmed.IndexOf("\" ", StringComparison.Ordinal);
                 trimmed = trimmed[1..closingQuoteIndex];
@@ -1014,18 +1014,11 @@ internal static class SteamShortcutRenamer
                 .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
         }
 
-        public sealed class ShortcutEntry
+        public sealed class ShortcutEntry(VdfObject entryObject)
         {
-            private readonly VdfObject _entryObject;
-
-            public ShortcutEntry(VdfObject entryObject)
-            {
-                _entryObject = entryObject;
-            }
-
             public string? AppName => GetString("AppName") ?? GetString("appname");
 
-            public uint? AppId => GetUInt32("appid");
+            private uint? AppId => GetUInt32("appid");
 
             private string? ExecutableValue => GetString("Exe") ?? GetString("exe");
 
@@ -1048,7 +1041,7 @@ internal static class SteamShortcutRenamer
                     return;
                 }
 
-                _entryObject.Properties.Insert(0, new VdfProperty(StringType, "AppName", newName));
+                entryObject.Properties.Insert(0, new VdfProperty(StringType, "AppName", newName));
             }
 
             public void RefreshAppId()
@@ -1073,28 +1066,20 @@ internal static class SteamShortcutRenamer
 
             private string? GetString(string name)
             {
-                foreach (var property in _entryObject.Properties)
-                {
-                    if (property.Type == StringType && string.Equals(property.Name, name, StringComparison.Ordinal))
-                    {
-                        return property.Value as string;
-                    }
-                }
-
-                return null;
+                return (from property in entryObject.Properties 
+                    where property.Type == StringType && string.Equals(property.Name, name, StringComparison.Ordinal) 
+                    select property.Value as string).FirstOrDefault();
             }
 
             private bool TrySetString(string name, string value)
             {
-                for (var i = 0; i < _entryObject.Properties.Count; i++)
+                for (var i = 0; i < entryObject.Properties.Count; i++)
                 {
-                    var property = _entryObject.Properties[i];
+                    var property = entryObject.Properties[i];
                     if (property.Type != StringType || !string.Equals(property.Name, name, StringComparison.Ordinal))
-                    {
                         continue;
-                    }
 
-                    _entryObject.Properties[i] = property with { Value = value };
+                    entryObject.Properties[i] = property with { Value = value };
                     return true;
                 }
 
@@ -1103,13 +1088,8 @@ internal static class SteamShortcutRenamer
 
             private uint? GetUInt32(string name)
             {
-                foreach (var property in _entryObject.Properties)
-                {
-                    if (property.Type == Int32Type && string.Equals(property.Name, name, StringComparison.Ordinal))
-                    {
-                        return unchecked((uint)(int)property.Value);
-                    }
-                }
+                foreach (var property in entryObject.Properties.Where(property => property.Type == Int32Type && string.Equals(property.Name, name, StringComparison.Ordinal)))
+                    return unchecked((uint)(int)property.Value);
 
                 return null;
             }
@@ -1117,19 +1097,19 @@ internal static class SteamShortcutRenamer
             private void SetUInt32(string name, uint value)
             {
                 var intValue = unchecked((int)value);
-                for (var i = 0; i < _entryObject.Properties.Count; i++)
+                for (var i = 0; i < entryObject.Properties.Count; i++)
                 {
-                    var property = _entryObject.Properties[i];
+                    var property = entryObject.Properties[i];
                     if (property.Type != Int32Type || !string.Equals(property.Name, name, StringComparison.Ordinal))
                     {
                         continue;
                     }
 
-                    _entryObject.Properties[i] = property with { Value = intValue };
+                    entryObject.Properties[i] = property with { Value = intValue };
                     return;
                 }
 
-                _entryObject.Properties.Add(new VdfProperty(Int32Type, name, intValue));
+                entryObject.Properties.Add(new VdfProperty(Int32Type, name, intValue));
             }
         }
 
