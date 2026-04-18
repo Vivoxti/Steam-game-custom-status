@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text;
 using Microsoft.Win32;
 
@@ -19,7 +21,7 @@ internal static class SteamShortcutRenamer
 
             var description = currentName is null
                 ? "The current executable was found among Steam non-Steam games."
-                : $"Current name: {currentName}";
+                : $"Name: {currentName}";
 
             return ShortcutRegistrationStatus.Registered(description, currentName);
         }
@@ -50,14 +52,28 @@ internal static class SteamShortcutRenamer
             return RenameLookupResult.Failure("No shortcuts.vdf files were found. First add this executable to Steam as a non-Steam game.");
         }
 
+        var loadedAnyShortcutFile = false;
+        string? shortcutFileLoadError = null;
+
         foreach (var shortcutFile in shortcutFiles)
         {
-            var file = SteamShortcutsFile.Load(shortcutFile);
+            if (!TryLoadShortcutFile(shortcutFile, out var file, out var loadErrorMessage))
+            {
+                shortcutFileLoadError ??= loadErrorMessage;
+                continue;
+            }
+
+            loadedAnyShortcutFile = true;
             var shortcut = file.FindByExecutablePath(processPath);
             if (shortcut is not null)
             {
                 return RenameLookupResult.Found(shortcut.AppName);
             }
+        }
+
+        if (!loadedAnyShortcutFile)
+        {
+            return RenameLookupResult.Failure(shortcutFileLoadError ?? "Steam shortcut files could not be read.");
         }
 
         return RenameLookupResult.Failure(
@@ -86,10 +102,18 @@ internal static class SteamShortcutRenamer
         }
 
         var updatedEntries = 0;
+        var loadedAnyShortcutFile = false;
+        string? shortcutFileLoadError = null;
 
         foreach (var shortcutFile in shortcutFiles)
         {
-            var file = SteamShortcutsFile.Load(shortcutFile);
+            if (!TryLoadShortcutFile(shortcutFile, out var file, out var loadErrorMessage))
+            {
+                shortcutFileLoadError ??= loadErrorMessage;
+                continue;
+            }
+
+            loadedAnyShortcutFile = true;
             if (!file.TryRenameByExecutablePath(processPath, newName, out var renamedInFile))
             {
                 continue;
@@ -100,19 +124,32 @@ internal static class SteamShortcutRenamer
                 continue;
             }
 
-            CreateBackup(shortcutFile);
-            file.Save(shortcutFile);
+            try
+            {
+                CreateBackup(shortcutFile);
+                file.Save(shortcutFile);
+            }
+            catch
+            {
+                return RenameResult.Failure(BuildShortcutFileWriteErrorMessage(shortcutFile));
+            }
+
             updatedEntries += renamedInFile;
         }
 
         if (updatedEntries == 0)
         {
+            if (!loadedAnyShortcutFile)
+            {
+                return RenameResult.Failure(shortcutFileLoadError ?? "Steam shortcut files could not be read.");
+            }
+
             return RenameResult.Failure(
                 $"No non-Steam shortcut was found for this executable: {processPath}\n\n" +
                 "Make sure Steam contains the currently published executable.");
         }
 
-        var message = $"Name updated";
+        var message = "Steam shortcut name updated.";
 
         return RenameResult.Successful(message);
     }
@@ -181,32 +218,66 @@ internal static class SteamShortcutRenamer
 
         var exeFileName = Path.GetFileNameWithoutExtension(processPath);
         var fileName = SanitizeFileName(exeFileName);
-        var shortcutPath = Path.Combine(desktopPath, fileName + ".url");
+        var shortcutPath = Path.Combine(desktopPath, fileName + ".lnk");
+        var legacyShortcutPath = Path.Combine(desktopPath, fileName + ".url");
         var url = $"steam://rungameid/{shortcutInfoResult.ShortcutInfo.RunGameId}";
 
-        var lines = new[]
+        var explorerPath = GetExplorerExecutablePath();
+        if (string.IsNullOrWhiteSpace(explorerPath))
         {
-            "[InternetShortcut]",
-            $"URL={url}",
-            $"IconFile={processPath}",
-            "IconIndex=0"
-        };
+            return OperationResult.Failure("Could not find Windows Explorer for Desktop shortcut creation.");
+        }
 
         if (File.Exists(shortcutPath))
         {
-            var existingLines = File.ReadAllLines(shortcutPath);
-            var existingUrlLine = existingLines.FirstOrDefault(line => line.StartsWith("URL=", StringComparison.OrdinalIgnoreCase));
+            if (!TryReadShellLink(shortcutPath, out var existingTargetPath, out var existingArguments))
+            {
+                return OperationResult.Failure("The existing Desktop shortcut could not be read.");
+            }
 
-            if (string.Equals(existingUrlLine, $"URL={url}", StringComparison.OrdinalIgnoreCase))
+            if (ShellLinkMatches(existingTargetPath, existingArguments, explorerPath, url))
             {
                 return OperationResult.Successful("Desktop shortcut is already on the Desktop.");
             }
 
             return OperationResult.Failure(
-                "A file with the same name already exists on the Desktop.");
+                $"A different Desktop shortcut named \"{Path.GetFileName(shortcutPath)}\" already exists.");
         }
 
-        File.WriteAllLines(shortcutPath, lines, Encoding.ASCII);
+        if (File.Exists(legacyShortcutPath))
+        {
+            if (!TryReadInternetShortcutUrl(legacyShortcutPath, out var existingUrl))
+            {
+                return OperationResult.Failure("The existing legacy Desktop shortcut could not be read.");
+            }
+
+            if (!string.Equals(existingUrl, url, StringComparison.OrdinalIgnoreCase))
+            {
+                return OperationResult.Failure(
+                    $"A different Desktop shortcut named \"{Path.GetFileName(legacyShortcutPath)}\" already exists.");
+            }
+
+            try
+            {
+                File.SetAttributes(legacyShortcutPath, FileAttributes.Normal);
+                File.Delete(legacyShortcutPath);
+            }
+            catch
+            {
+                return OperationResult.Failure("The existing legacy Desktop shortcut could not be replaced.");
+            }
+        }
+
+        if (!TryCreateShellLink(
+                shortcutPath,
+                explorerPath,
+                url,
+                Path.GetDirectoryName(processPath) ?? desktopPath,
+                processPath,
+                $"Launch {shortcutInfoResult.ShortcutInfo.AppName} via Steam"))
+        {
+            return OperationResult.Failure("The Desktop shortcut could not be created.");
+        }
 
         return OperationResult.Successful("Desktop shortcut created.");
     }
@@ -261,14 +332,28 @@ internal static class SteamShortcutRenamer
             return ShortcutInfoResult.Failure("No shortcuts.vdf files were found.");
         }
 
+        var loadedAnyShortcutFile = false;
+        string? shortcutFileLoadError = null;
+
         foreach (var shortcutFile in shortcutFiles)
         {
-            var file = SteamShortcutsFile.Load(shortcutFile);
+            if (!TryLoadShortcutFile(shortcutFile, out var file, out var loadErrorMessage))
+            {
+                shortcutFileLoadError ??= loadErrorMessage;
+                continue;
+            }
+
+            loadedAnyShortcutFile = true;
             var shortcut = file.FindByExecutablePath(processPath);
             if (shortcut is not null)
             {
                 return ShortcutInfoResult.Found(shortcut.ToShortcutInfo());
             }
+        }
+
+        if (!loadedAnyShortcutFile)
+        {
+            return ShortcutInfoResult.Failure(shortcutFileLoadError ?? "Steam shortcut files could not be read.");
         }
 
         return ShortcutInfoResult.Failure(
@@ -278,21 +363,27 @@ internal static class SteamShortcutRenamer
 
     private static string? TryGetSteamPath()
     {
-        using var steamKey = Registry.CurrentUser.OpenSubKey(@"Software\Valve\Steam");
-        var steamPath = steamKey?.GetValue("SteamPath") as string;
-        if (!string.IsNullOrWhiteSpace(steamPath) && Directory.Exists(steamPath))
+        try
         {
-            return steamPath;
-        }
-
-        var steamExe = steamKey?.GetValue("SteamExe") as string;
-        if (!string.IsNullOrWhiteSpace(steamExe))
-        {
-            var steamDirectory = Path.GetDirectoryName(steamExe);
-            if (!string.IsNullOrWhiteSpace(steamDirectory) && Directory.Exists(steamDirectory))
+            using var steamKey = Registry.CurrentUser.OpenSubKey(@"Software\Valve\Steam");
+            var steamPath = steamKey?.GetValue("SteamPath") as string;
+            if (!string.IsNullOrWhiteSpace(steamPath) && Directory.Exists(steamPath))
             {
-                return steamDirectory;
+                return steamPath;
             }
+
+            var steamExe = steamKey?.GetValue("SteamExe") as string;
+            if (!string.IsNullOrWhiteSpace(steamExe))
+            {
+                var steamDirectory = Path.GetDirectoryName(steamExe);
+                if (!string.IsNullOrWhiteSpace(steamDirectory) && Directory.Exists(steamDirectory))
+                {
+                    return steamDirectory;
+                }
+            }
+        }
+        catch
+        {
         }
 
         var defaultSteamPath = Path.Combine(
@@ -304,11 +395,17 @@ internal static class SteamShortcutRenamer
 
     private static string? TryGetSteamExePath()
     {
-        using var steamKey = Registry.CurrentUser.OpenSubKey(@"Software\Valve\Steam");
-        var steamExe = steamKey?.GetValue("SteamExe") as string;
-        if (!string.IsNullOrWhiteSpace(steamExe) && File.Exists(steamExe))
+        try
         {
-            return steamExe;
+            using var steamKey = Registry.CurrentUser.OpenSubKey(@"Software\Valve\Steam");
+            var steamExe = steamKey?.GetValue("SteamExe") as string;
+            if (!string.IsNullOrWhiteSpace(steamExe) && File.Exists(steamExe))
+            {
+                return steamExe;
+            }
+        }
+        catch
+        {
         }
 
         var steamPath = TryGetSteamPath();
@@ -339,6 +436,178 @@ internal static class SteamShortcutRenamer
         }
     }
 
+    private static string? GetExplorerExecutablePath()
+    {
+        var windowsDirectory = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+        if (string.IsNullOrWhiteSpace(windowsDirectory))
+        {
+            return null;
+        }
+
+        var explorerPath = Path.Combine(windowsDirectory, "explorer.exe");
+        return File.Exists(explorerPath) ? explorerPath : null;
+    }
+
+    private static bool TryCreateShellLink(
+        string shortcutPath,
+        string targetPath,
+        string arguments,
+        string workingDirectory,
+        string iconPath,
+        string description)
+    {
+        object? shellObject = null;
+        object? shortcutObject = null;
+
+        try
+        {
+            var shellType = Type.GetTypeFromProgID("WScript.Shell");
+            if (shellType is null)
+            {
+                return false;
+            }
+
+            shellObject = Activator.CreateInstance(shellType);
+            if (shellObject is null)
+            {
+                return false;
+            }
+
+            shortcutObject = shellType.InvokeMember(
+                "CreateShortcut",
+                BindingFlags.InvokeMethod,
+                binder: null,
+                shellObject,
+                [shortcutPath]);
+
+            if (shortcutObject is null)
+            {
+                return false;
+            }
+
+            var shortcutType = shortcutObject.GetType();
+            shortcutType.InvokeMember("TargetPath", BindingFlags.SetProperty, null, shortcutObject, [targetPath]);
+            shortcutType.InvokeMember("Arguments", BindingFlags.SetProperty, null, shortcutObject, [arguments]);
+            shortcutType.InvokeMember("WorkingDirectory", BindingFlags.SetProperty, null, shortcutObject, [workingDirectory]);
+            shortcutType.InvokeMember("IconLocation", BindingFlags.SetProperty, null, shortcutObject, [$"{iconPath},0"]);
+            shortcutType.InvokeMember("Description", BindingFlags.SetProperty, null, shortcutObject, [description]);
+            shortcutType.InvokeMember("Save", BindingFlags.InvokeMethod, null, shortcutObject, null);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+        finally
+        {
+            ReleaseComObject(shortcutObject);
+            ReleaseComObject(shellObject);
+        }
+    }
+
+    private static bool TryReadShellLink(string shortcutPath, out string? targetPath, out string? arguments)
+    {
+        object? shellObject = null;
+        object? shortcutObject = null;
+
+        try
+        {
+            var shellType = Type.GetTypeFromProgID("WScript.Shell");
+            if (shellType is null)
+            {
+                targetPath = null;
+                arguments = null;
+                return false;
+            }
+
+            shellObject = Activator.CreateInstance(shellType);
+            if (shellObject is null)
+            {
+                targetPath = null;
+                arguments = null;
+                return false;
+            }
+
+            shortcutObject = shellType.InvokeMember(
+                "CreateShortcut",
+                BindingFlags.InvokeMethod,
+                binder: null,
+                shellObject,
+                [shortcutPath]);
+
+            if (shortcutObject is null)
+            {
+                targetPath = null;
+                arguments = null;
+                return false;
+            }
+
+            var shortcutType = shortcutObject.GetType();
+            targetPath = shortcutType.InvokeMember("TargetPath", BindingFlags.GetProperty, null, shortcutObject, null) as string;
+            arguments = shortcutType.InvokeMember("Arguments", BindingFlags.GetProperty, null, shortcutObject, null) as string;
+            return true;
+        }
+        catch
+        {
+            targetPath = null;
+            arguments = null;
+            return false;
+        }
+        finally
+        {
+            ReleaseComObject(shortcutObject);
+            ReleaseComObject(shellObject);
+        }
+    }
+
+    private static bool TryReadInternetShortcutUrl(string shortcutPath, out string? url)
+    {
+        try
+        {
+            var existingLines = File.ReadAllLines(shortcutPath);
+            var existingUrlLine = existingLines.FirstOrDefault(line => line.StartsWith("URL=", StringComparison.OrdinalIgnoreCase));
+            url = existingUrlLine is null ? null : existingUrlLine[4..].Trim();
+            return !string.IsNullOrWhiteSpace(url);
+        }
+        catch
+        {
+            url = null;
+            return false;
+        }
+    }
+
+    private static bool ShellLinkMatches(string? targetPath, string? arguments, string expectedTargetPath, string expectedArguments)
+    {
+        if (string.IsNullOrWhiteSpace(targetPath))
+        {
+            return false;
+        }
+
+        return string.Equals(NormalizePath(targetPath), NormalizePath(expectedTargetPath), StringComparison.OrdinalIgnoreCase) &&
+               string.Equals(NormalizeShellArgument(arguments), NormalizeShellArgument(expectedArguments), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string NormalizePath(string path)
+    {
+        return Path.GetFullPath(path)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+    }
+
+    private static string NormalizeShellArgument(string? argument)
+    {
+        return string.IsNullOrWhiteSpace(argument)
+            ? string.Empty
+            : argument.Trim().Trim('"');
+    }
+
+    private static void ReleaseComObject(object? instance)
+    {
+        if (instance is not null && Marshal.IsComObject(instance))
+        {
+            Marshal.FinalReleaseComObject(instance);
+        }
+    }
+
     private static IEnumerable<string> GetShortcutFiles(string steamPath)
     {
         var userdataPath = Path.Combine(steamPath, "userdata");
@@ -347,7 +616,17 @@ internal static class SteamShortcutRenamer
             yield break;
         }
 
-        foreach (var userDirectory in Directory.EnumerateDirectories(userdataPath))
+        string[] userDirectories;
+        try
+        {
+            userDirectories = Directory.GetDirectories(userdataPath);
+        }
+        catch
+        {
+            yield break;
+        }
+
+        foreach (var userDirectory in userDirectories)
         {
             var directoryName = Path.GetFileName(userDirectory);
             if (!ulong.TryParse(directoryName, out _))
@@ -360,6 +639,22 @@ internal static class SteamShortcutRenamer
             {
                 yield return shortcutPath;
             }
+        }
+    }
+
+    private static bool TryLoadShortcutFile(string shortcutFile, out SteamShortcutsFile file, out string loadErrorMessage)
+    {
+        try
+        {
+            file = SteamShortcutsFile.Load(shortcutFile);
+            loadErrorMessage = string.Empty;
+            return true;
+        }
+        catch
+        {
+            file = null!;
+            loadErrorMessage = BuildShortcutFileReadErrorMessage(shortcutFile);
+            return false;
         }
     }
 
@@ -415,6 +710,16 @@ internal static class SteamShortcutRenamer
             File.SetAttributes(backupFile, FileAttributes.Normal);
             File.Delete(backupFile);
         }
+    }
+
+    private static string BuildShortcutFileReadErrorMessage(string shortcutFile)
+    {
+        return $"Steam shortcut data could not be read from:\n{shortcutFile}\n\nClose Steam and try again. If the problem continues, restore the file from its backup.";
+    }
+
+    private static string BuildShortcutFileWriteErrorMessage(string shortcutFile)
+    {
+        return $"Steam shortcut data could not be updated in:\n{shortcutFile}\n\nClose Steam and try again. If the problem continues, restore the file from shortcuts.vdf.bak.";
     }
 
     internal sealed record RenameLookupResult(bool Success, string Message, string? CurrentName)

@@ -17,7 +17,7 @@ Minimal tray-first Windows app for running as a Steam `non-Steam game` and contr
 - can restart Steam automatically after rename when it is safe to apply the new name immediately
 - can relaunch itself through `steam://rungameid/...` after the rename flow when the app was originally started from Steam
 - uses a hidden external restart helper and exit cleanup guard so the app executable itself is less likely to leave Steam stuck on an active or closing status
-- creates desktop `.url` shortcuts that launch through `steam://rungameid/...`
+- creates desktop `.lnk` shortcuts that launch through `steam://rungameid/...`
 - offers a `Launch via Steam` action when the shortcut exists but the app was started outside Steam
 - opens Steam to the add-non-Steam-game flow when the app is not yet registered
 - keeps a single active tray instance and prefers the Steam-launched instance when needed
@@ -42,7 +42,7 @@ When the current executable **is not registered in Steam**:
 ## What it does not do
 
 - it does **not** match arbitrary copies or Debug builds from other folders
-- it does **not** create `.lnk` desktop shortcuts; it currently creates `.url` shortcuts
+- it does **not** start the non-Steam game shortcut directly; desktop shortcuts still route through `steam://rungameid/...`
 - it does **not** exit when the main window is closed unless the user explicitly chooses `Exit`
 - it does **not** rename unrelated Steam shortcuts; matching is strictly by the current executable path
 
@@ -89,9 +89,11 @@ If the app is not yet registered in Steam, it can open Steam to the add-game flo
 
 ### Desktop shortcut and add-game behavior
 
-- Desktop shortcut creation produces a `.url` file on the Desktop.
-- The shortcut uses `steam://rungameid/<id>` and the current executable as its icon source.
+- Desktop shortcut creation produces a `.lnk` file on the Desktop so Windows can pin it more reliably.
+- The shortcut still launches `steam://rungameid/<id>` and uses the current executable as its icon source.
+- Under the hood, the `.lnk` points at `explorer.exe` with the `steam://rungameid/...` URI as its argument so the launch still goes through Steam instead of starting the app shortcut directly.
 - The shortcut file name is based on the current executable name.
+- If a matching legacy `.url` shortcut from an older build already exists, the app replaces it with the new `.lnk` shortcut.
 - If Steam cannot open the add-game flow directly, the app falls back to opening Steam normally and shows manual instructions.
 
 ### Single-instance behavior
@@ -132,6 +134,20 @@ Current publish-related project settings:
 - `UseWPF = true`
 - `UseWindowsForms = true`
 - `IncludeNativeLibrariesForSelfExtract = true`
+
+## Release verification checklist
+
+Before shipping a build, verify the following against the published executable at
+`bin\Release\net10.0-windows\win-x64\publish\SteamGameCustomStatus.exe`:
+
+- publish succeeds with `dotnet publish -c Release`
+- the app starts in the tray without opening the main window
+- closing the main window hides it back to tray instead of exiting
+- the tray icon stays gray while inactive and turns white while the current shortcut is active in Steam
+- the main window correctly distinguishes between the registered and missing-in-Steam states
+- rename still creates `shortcuts.vdf.bak` and preserves manual custom naming
+- `Launch via Steam` is only shown when the shortcut exists and the app was started outside Steam
+- desktop shortcut creation still targets `steam://rungameid/...`
 
 ## Repository pointers
 

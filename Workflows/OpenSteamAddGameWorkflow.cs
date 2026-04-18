@@ -1,4 +1,5 @@
-﻿using SteamGameCustomStatus.Steam;
+using SteamGameCustomStatus.Steam;
+using SteamGameCustomStatus.UI.Windows;
 using Wpf = System.Windows;
 
 namespace SteamGameCustomStatus.Workflows;
@@ -9,6 +10,12 @@ internal static class OpenSteamAddGameWorkflow
     {
         var result = SteamShortcutRenamer.OpenSteamForAddingCurrentExecutable();
         var image = result.Success ? Wpf.MessageBoxImage.Information : Wpf.MessageBoxImage.Warning;
+
+        if (owner is MainWindow mainWindow)
+        {
+            mainWindow.ShowInlineMessage(result.Message, isWarning: !result.Success);
+            return;
+        }
 
         if (owner is not null)
         {

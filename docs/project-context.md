@@ -129,11 +129,12 @@ Lookup and write notes:
 
 ### Desktop shortcut behavior
 
-- Desktop shortcut creation currently produces a `.url` file.
-- The shortcut target is a `steam://rungameid/<id>` URL.
+- Desktop shortcut creation now produces a `.lnk` file so Windows can pin it to Start and the taskbar more reliably.
+- The shortcut still launches through `steam://rungameid/<id>`.
 - The generated shortcut uses the current executable as its icon source.
+- Internally, the `.lnk` targets `explorer.exe` and passes the `steam://rungameid/...` URI as an argument so the launch stays Steam-driven instead of starting the app shortcut directly.
 - The shortcut file name is based on the current executable file name and sanitized for Windows file-system rules.
-- If a `.url` with the same name already exists and points to the same `steam://rungameid/...` target, the workflow reports success without creating a duplicate.
+- If a matching legacy `.url` with the same base name already exists and points to the same `steam://rungameid/...` target, the workflow replaces it with the new `.lnk`.
 - This matters because starting the executable directly outside Steam usually does not produce the intended non-Steam game status.
 
 ### Launch-via-Steam behavior
@@ -186,6 +187,17 @@ Expected published executable path (relative to repository root):
 bin\Release\net10.0-windows\win-x64\publish\SteamGameCustomStatus.exe
 ```
 
+Release verification checklist:
+
+- confirm `dotnet publish -c Release` succeeds
+- verify tray-first startup still opens no main window initially
+- verify closing the main window still hides to tray instead of exiting
+- verify tray icon mirroring remains gray while inactive and white while active
+- verify the registered/missing Steam states still render correctly in the main window
+- verify rename still creates `shortcuts.vdf.bak` and keeps manual free-text naming intact
+- verify `Launch via Steam` remains available only for registered shortcuts launched outside Steam
+- verify desktop shortcuts still launch through `steam://rungameid/...`
+
 ## File map
 
 - `App.xaml` / `App.xaml.cs` — startup, tray icon, lifecycle, dynamic tray actions, Steam relaunch exit handling, and safe exit cleanup scheduling
@@ -217,7 +229,6 @@ bin\Release\net10.0-windows\win-x64\publish\SteamGameCustomStatus.exe
 
 - The app only works with the non-Steam entry whose `Exe` exactly matches the current executable path.
 - Starting the executable directly outside Steam does not provide the intended Steam running-status behavior.
-- Desktop shortcut creation is currently `.url`-based, not `.lnk`-based.
 - Windows autostart is not implemented.
 - The tray interaction currently relies on `ContextMenuStrip`, not a custom WPF tray menu.
 - Steam activity detection depends on Steam exposing the expected `RunningAppID` registry value or on the app being started through Steam.
@@ -235,6 +246,5 @@ bin\Release\net10.0-windows\win-x64\publish\SteamGameCustomStatus.exe
 
 - Add explicit selection if multiple Steam shortcut candidates ever need to be supported.
 - Display the current `AppName`, `appid`, and `rungameid` more explicitly in the UI.
-- Add `.lnk` creation as an alternative to `.url`.
 - Add settings persistence and Windows autostart if the product direction requires it.
 

@@ -34,7 +34,7 @@ public partial class RenameDialog : Window
         NameTextBox.Text = currentName;
         NameTextBox.SelectAll();
         _suppressSuggestionRefresh = false;
-        UpdateSuggestionStatus("Type for suggestions. Any custom name works.");
+        UpdateSuggestionStatus("Type for suggestions.");
 
         if (owner is { IsVisible: true, WindowState: not WindowState.Minimized })
         {
