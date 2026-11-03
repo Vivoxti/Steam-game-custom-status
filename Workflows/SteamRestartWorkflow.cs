@@ -80,7 +80,7 @@ internal static class SteamRestartWorkflow
     }
 
 
-    private static bool IsSteamRunning()
+    internal static bool IsSteamRunning()
     {
         foreach (var process in Process.GetProcessesByName("steam"))
         {

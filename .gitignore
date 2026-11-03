@@ -17,3 +17,7 @@ riderModule.iml
 # Local Copilot / repository instructions
 .github/
 
+
+# Node bridge (tools/nxapi-bridge)
+tools/nxapi-bridge/node_modules/
+tools/nxapi-bridge/dist/

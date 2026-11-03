@@ -25,8 +25,10 @@ internal sealed class SingleInstanceCoordinator : IDisposable
 
         var scopeId = GetCurrentUserScopeId();
         _pipeName = $"SteamGameCustomStatus_{scopeId}_Pipe";
-        _mutex = new Mutex(false, $@"Local\SteamGameCustomStatus_{scopeId}_Mutex");
+        _mutex = new Mutex(false, PrimaryMutexName);
     }
+
+    internal static string PrimaryMutexName => $@"Local\SteamGameCustomStatus_{GetCurrentUserScopeId()}_Mutex";
 
     public SingleInstanceStartupResult RegisterCurrentInstance(bool isSteamLaunch)
     {
@@ -211,7 +213,7 @@ internal sealed class SingleInstanceCoordinator : IDisposable
         }
     }
 
-    private static string GetCurrentUserScopeId()
+    internal static string GetCurrentUserScopeId()
     {
         using var identity = WindowsIdentity.GetCurrent();
         var rawScopeId = identity.User?.Value ?? Environment.UserName;

@@ -6,9 +6,9 @@
         mc:Ignorable="d"
         Title="Steam Game Custom Status"
         Width="380"
-        Height="444"
+        Height="516"
         MinWidth="380"
-        MinHeight="444"
+        MinHeight="516"
         Background="Transparent"
         WindowStyle="None"
         AllowsTransparency="True"
@@ -227,6 +227,45 @@
                                    Foreground="{StaticResource TextSecondary}"
                                    TextWrapping="Wrap" />
                     </StackPanel>
+                </Border>
+
+                <!-- Nintendo Switch status: visible in both the registered and the not-registered state -->
+                <Border x:Name="NintendoCard"
+                        Margin="0,12,0,0"
+                        Padding="14,10"
+                        Background="{StaticResource BtnBg}"
+                        BorderBrush="{StaticResource BorderStroke}"
+                        BorderThickness="1"
+                        CornerRadius="8">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                            <TextBlock FontFamily="Segoe UI Variable Display, Segoe UI"
+                                       FontSize="13"
+                                       FontWeight="SemiBold"
+                                       Foreground="{StaticResource TextPrimary}"
+                                       Text="Nintendo Switch" />
+                            <TextBlock x:Name="NintendoStatusText"
+                                       Margin="0,2,0,0"
+                                       FontFamily="Segoe UI Variable Display, Segoe UI"
+                                       FontSize="12"
+                                       Foreground="{StaticResource TextSecondary}"
+                                       TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+
+                        <Button Grid.Column="1"
+                                Margin="12,0,0,0"
+                                VerticalAlignment="Center"
+                                Height="32"
+                                FontSize="12"
+                                Content="Nintendo Switch…"
+                                Style="{StaticResource ActionBtn}"
+                                Click="NintendoSwitch_Click" />
+                    </Grid>
                 </Border>
             </StackPanel>
 

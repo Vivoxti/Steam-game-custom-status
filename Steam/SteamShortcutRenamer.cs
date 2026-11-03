@@ -8,7 +8,7 @@ using Microsoft.Win32;
 
 namespace SteamGameCustomStatus.Steam;
 
-internal static class SteamShortcutRenamer
+internal static partial class SteamShortcutRenamer
 {
     public static ShortcutRegistrationStatus GetCurrentShortcutRegistrationStatus()
     {
@@ -823,7 +823,7 @@ internal static class SteamShortcutRenamer
         return (~crc) | 0x80000000u;
     }
 
-    private sealed class SteamShortcutsFile
+    private sealed partial class SteamShortcutsFile
     {
         private const byte ObjectType = 0x00;
         private const byte StringType = 0x01;
@@ -871,7 +871,7 @@ internal static class SteamShortcutRenamer
                 }
 
                 var entry = new ShortcutEntry(entryObject);
-                if (entry.MatchesExecutablePath(normalizedExecutablePath))
+                if (!entry.IsSwitchGameShortcut && entry.MatchesExecutablePath(normalizedExecutablePath))
                 {
                     return entry;
                 }
@@ -893,7 +893,7 @@ internal static class SteamShortcutRenamer
                 }
 
                 var entry = new ShortcutEntry(entryObject);
-                if (!entry.MatchesExecutablePath(normalizedExecutablePath))
+                if (entry.IsSwitchGameShortcut || !entry.MatchesExecutablePath(normalizedExecutablePath))
                 {
                     continue;
                 }
@@ -1022,6 +1022,11 @@ internal static class SteamShortcutRenamer
 
             private string? ExecutableValue => GetString("Exe") ?? GetString("exe");
 
+            public string? LaunchOptions => GetString("LaunchOptions");
+
+            public bool IsSwitchGameShortcut =>
+                LaunchOptions?.Contains(SwitchGameLaunchMarker, StringComparison.Ordinal) == true;
+
             public bool MatchesExecutablePath(string normalizedExecutablePath)
             {
                 var entryExecutablePath = GetString("Exe") ?? GetString("exe");
@@ -1042,6 +1047,19 @@ internal static class SteamShortcutRenamer
                 }
 
                 entryObject.Properties.Insert(0, new VdfProperty(StringType, "AppName", newName));
+            }
+
+            public void SetExecutable(string quotedExecutablePath, string quotedStartDirectory)
+            {
+                if (!TrySetString("Exe", quotedExecutablePath) && !TrySetString("exe", quotedExecutablePath))
+                {
+                    entryObject.Properties.Add(new VdfProperty(StringType, "Exe", quotedExecutablePath));
+                }
+
+                if (!TrySetString("StartDir", quotedStartDirectory))
+                {
+                    entryObject.Properties.Add(new VdfProperty(StringType, "StartDir", quotedStartDirectory));
+                }
             }
 
             public void RefreshAppId()

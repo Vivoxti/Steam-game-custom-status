@@ -53,8 +53,8 @@ This keeps the instance actually launched by Steam preferred when applicable.
 
 - The app is a `WinExe` and does not rely on `StartupUri`.
 - `NotifyIcon` is used for tray integration.
-- The tray menu contains `Open`, `Exit`, and context-dependent Steam actions.
-- The tray icon mirrors Steam activity: white while active, gray while inactive.
+- The tray menu contains `Open`, `Nintendo Switch…`, `Exit`, context-dependent Steam actions, and a disabled Switch status line while the Switch feature is enabled.
+- The tray icon mirrors Steam activity: white while active, gray while inactive, red (`Assets/IconSwitch.ico`) while the Switch presence status is Playing; red takes precedence.
 - When the current executable is registered in Steam, the tray can expose `Rename`, `Create Desktop Shortcut`, and optionally `Launch via Steam`.
 - Double-clicking the tray icon opens the control window.
 - When the main window is opened, the current Steam registration state is refreshed.
@@ -69,7 +69,7 @@ This keeps the instance actually launched by Steam preferred when applicable.
 - When not found, the rename and shortcut actions are hidden and the user is guided toward adding the published executable to Steam.
 - The UI shows a green/red Steam activity indicator with explanatory tooltip text.
 - The missing-state action opens Steam to the add-game flow and surfaces the current executable path for manual selection.
-- The current compact window size is approximately `380 x 444`.
+- The current compact window size is approximately `380 x 516` (including the Nintendo Switch card).
 - The window is borderless, dark themed, and not shown in the taskbar.
 - Inline success and warning messages are used for some actions while the window is open.
 
@@ -163,6 +163,33 @@ When the app is not yet found in Steam:
 - Steam launch detection walks the parent-process chain up to a limited depth.
 - It uses `NtQueryInformationProcess` to read parent process IDs and checks whether any ancestor process is `steam`.
 
+### Nintendo Switch presence
+
+Optional feature that mirrors the game played on Nintendo Switch / Switch 2 into Steam.
+
+- Nintendo's Coral (NSO app) API does not return your own presence, only friends'. A secondary "bot" Nintendo Account that is friends with the user's main account signs in, and the main account's presence is read from the bot's friend list.
+- Coral access goes through `tools/nxapi-bridge`: nxapi (`1.6.1-next.257`) bundled with esbuild into a Node 24 single-executable app, brotli-compressed to `dist/nxapi-bridge.exe.br` and embedded as resource `SteamGameCustomStatus.Assets.nxapi-bridge.exe.br`. On first use it is extracted to `<data>\bin\nxapi-bridge-<hash>.exe`. The bridge needs nxapi's third-party `f`-token service (nxapi-znca-api / nxapi-auth) and uses nxapi's public CLI client id.
+- The C# side talks to the bridge through CLI commands with one JSON object per stdout line (`auth-url`, `login`, `status`, `logout`, `friends`, `presence`, `watch`, `version`); the protocol is documented in `tools/nxapi-bridge/README.md`.
+- `NintendoPresenceMonitor` keeps one `watch` process alive (restart with backoff; fatal codes `not_logged_in`, `auth_failed`, `friend_not_found`, `bridge_missing` stop it). Poll interval 1–5 minutes, never below 60 s in the app.
+- A title counts as played when the presence state is `ONLINE` or `PLAYING` and the game has a name (same rule as nxapi's Discord presence).
+- Steam cannot rename a non-Steam game without a restart, so every Switch title gets its own non-Steam shortcut in the active Steam user's `shortcuts.vdf`: `Exe` is this executable, `LaunchOptions` is `--switch-presence-hold <key>` (key = first 12 hex chars of SHA-256 of the upper-cased title), tag `Nintendo Switch`, icon downloaded from Nintendo artwork into `<data>\icons`.
+- Shortcuts whose `LaunchOptions` contain `--switch-presence-hold` are ignored by the app's own shortcut lookup and rename.
+- While a title is played, the app launches its shortcut via `steam://rungameid/...`. Steam starts this executable in **holder mode** (`SwitchPresenceHolder`): no tray, no single-instance registration, no Steam cleanup. It waits on the named event `Local\SteamGameCustomStatus_<user>_Hold_<key>` and exits when the tray app sets it or when the tray app's single-instance mutex has been gone for about 6 seconds.
+- A new or moved title shortcut is written only right before a Steam restart (or when Steam is not running). The restart is skipped while another Steam game is running (status "pending") and is rate-limited to once per 10 minutes per title. If a launch does not produce a holder within 25 s, Steam is assumed not to know the shortcut yet and is restarted.
+- A Steam-launched tray app is relaunched through its own shortcut after such a restart, the same as in the rename flow. Otherwise the restart helper relaunches the title shortcut directly.
+- A real exit stops the holders, so the Switch status ends. A single-instance handoff keeps them running.
+- Persistent data lives in the portable folder `SteamGameCustomStatus.data` next to the exe, or in `%LOCALAPPDATA%\SteamGameCustomStatus` when that folder is read-only:
+  - `nintendo.json` — settings;
+  - `nxapi\` — bot session token, stored in plain text by nxapi;
+  - `bin\` — the extracted bridge;
+  - `icons\` — downloaded title artwork;
+  - `webview\` — WebView2 profile.
+- UI:
+  - the tray menu has a `Nintendo Switch…` item and, when active, a disabled status line;
+  - the main window has a Nintendo Switch card;
+  - `NintendoSetupDialog` handles bot sign-in, friend selection, the enable toggle and the interval;
+  - `NintendoLoginWindow` hosts WebView2, intercepts the `npf71b963c1b7b6d119://auth` redirect, and has a paste-the-link fallback that uses the browser.
+
 ## Build and publish facts
 
 Canonical command for delivering the current executable:
@@ -180,6 +207,8 @@ Important current project settings from `SteamGameCustomStatus.csproj`:
 - `UseWPF = true`
 - `UseWindowsForms = true`
 - `IncludeNativeLibrariesForSelfExtract = true`
+- `tools\**` is excluded from default items. The `BuildNxapiBridge` target runs `npm ci && npm run build` in `tools/nxapi-bridge` when `dist/nxapi-bridge.exe.br` is missing; skip it with `-p:SkipNxapiBridgeBuild=true`. Without the bridge the app builds with a warning and the Switch feature reports itself unavailable.
+- The bridge adds about 27 MB to the published exe; single-file compression stays off so the runtime is not inflated into memory.
 
 Expected published executable path (relative to repository root):
 
@@ -192,7 +221,8 @@ Release verification checklist:
 - confirm `dotnet publish -c Release` succeeds
 - verify tray-first startup still opens no main window initially
 - verify closing the main window still hides to tray instead of exiting
-- verify tray icon mirroring remains gray while inactive and white while active
+- verify tray icon mirroring remains gray while inactive, white while active, and red while a Switch title is shown
+- verify Nintendo sign-in with the bot account, friend selection, and that a played Switch title appears in Steam (first title restarts Steam once)
 - verify the registered/missing Steam states still render correctly in the main window
 - verify rename still creates `shortcuts.vdf.bak` and keeps manual free-text naming intact
 - verify `Launch via Steam` remains available only for registered shortcuts launched outside Steam
@@ -213,7 +243,16 @@ Release verification checklist:
 - `Infrastructure/SingleInstanceCoordinator.cs` — single-instance rules and instance priority handling
 - `Infrastructure/LaunchContextDetector.cs` — detecting whether the app was launched through Steam or normally
 - `Properties/AssemblyInfo.cs` — WPF theme assembly metadata
+- `Nintendo/NxapiBridge.cs` — bridge extraction, CLI calls, JSON models
+- `Nintendo/NintendoPresenceMonitor.cs` — long-running `watch` process with restart/backoff
+- `Nintendo/SwitchPresenceController.cs` — presence → per-title Steam shortcut, holder launch, Steam restart decisions
+- `Nintendo/SwitchPresenceHolder.cs` — headless holder mode launched by Steam
+- `Nintendo/NintendoSettings.cs` / `Infrastructure/AppDataLocation.cs` — settings and the portable data folder
+- `Steam/SteamShortcutRenamer.SwitchGames.cs` — per-title Switch shortcuts in `shortcuts.vdf`
+- `UI/Dialogs/NintendoSetupDialog.*`, `UI/Dialogs/NintendoLoginWindow.*`, `Workflows/NintendoSetupWorkflow.cs` — Switch setup UI
+- `tools/nxapi-bridge/` — Node bridge sources and build script (AGPL-3.0, see its README/NOTICE)
 - `Assets/Icon.ico` — application icon used for publish output and tray branding
+- `Assets/IconInactive.ico` / `Assets/IconSwitch.ico` — gray inactive and red Switch-playing tray icons
 - `SteamGameCustomStatus.csproj` — packaging and publish settings
 
 ## Directory layout
@@ -221,9 +260,11 @@ Release verification checklist:
 - `UI/` — WPF windows and dialogs
 - `Workflows/` — user-triggered flows that orchestrate UI and Steam operations
 - `Steam/` — Steam-specific parsing, lookup, and persistence logic
-- `Infrastructure/` — process-launch and single-instance helpers
+- `Infrastructure/` — process-launch, single-instance, and data-folder helpers
+- `Nintendo/` — Nintendo Switch presence: bridge client, monitor, controller, holder mode, settings
 - `Properties/` — assembly-level metadata
 - `Assets/` — static application assets
+- `tools/nxapi-bridge/` — Node sources for the embedded Nintendo bridge (not compiled into the C# project directly)
 
 ## Known limitations
 
@@ -232,6 +273,8 @@ Release verification checklist:
 - Windows autostart is not implemented.
 - The tray interaction currently relies on `ContextMenuStrip`, not a custom WPF tray menu.
 - Steam activity detection depends on Steam exposing the expected `RunningAppID` registry value or on the app being started through Steam.
+- The Switch feature is unofficial: it depends on nxapi and its third-party token service and can break when Nintendo updates the NSO app. Nintendo sign-in is limited to 4 attempts per hour, and Switch status lags by the poll interval (1–5 minutes).
+- Each new Switch title needs one Steam restart, which is postponed while another Steam game is running.
 
 ## Workflow expectations for future changes
 
@@ -246,5 +289,5 @@ Release verification checklist:
 
 - Add explicit selection if multiple Steam shortcut candidates ever need to be supported.
 - Display the current `AppName`, `appid`, and `rungameid` more explicitly in the UI.
-- Add settings persistence and Windows autostart if the product direction requires it.
+- Add Windows autostart if the product direction requires it (settings persistence now exists for the Switch feature in `nintendo.json`).
 

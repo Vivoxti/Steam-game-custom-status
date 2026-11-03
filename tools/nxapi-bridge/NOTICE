@@ -1,0 +1,22 @@
+nxapi-bridge (this folder: bridge.mjs, build.mjs, shims/) is licensed under the
+GNU Affero General Public License, version 3 or (at your option) any later version
+(AGPL-3.0-or-later), because dist/nxapi-bridge.exe bundles nxapi.
+
+nxapi - Nintendo Switch app APIs
+Copyright (c) 2023 Ellie (https://github.com/samuelthomas2774/nxapi)
+Licensed under AGPL-3.0-or-later.
+Corresponding source of the bundled version: https://github.com/samuelthomas2774/nxapi
+(npm: nxapi@1.6.1-next.257, revision 47c9d35d9d51d33e62dd6d3733b616e0ad31b02b).
+The source of the bridge itself is this folder; the executable is reproducible with
+`npm ci && npm run build`.
+
+Full licence text: https://www.gnu.org/licenses/agpl-3.0.txt
+(GPL-3.0 section 13 / AGPL-3.0 section 13 permit combining the GPL-3.0 licensed
+Steam-game-custom-status app with this AGPL-3.0 component; the repository-root LICENSE
+is unchanged and applies to the rest of the repository.)
+
+Bundled third-party packages (undici, node-persist, debug, tslib, tweetnacl, ...) keep their own
+licences; see their entries in package-lock.json / node_modules/*/LICENSE. The executable also
+embeds the Node.js runtime (MIT, https://github.com/nodejs/node/blob/main/LICENSE).
+
+This product is not affiliated with Nintendo. Use at your own risk.

@@ -1,0 +1,15 @@
+{
+  "name": "nxapi-bridge",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "license": "AGPL-3.0-or-later",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "dependencies": {
+    "esbuild": "0.28.2",
+    "nxapi": "1.6.1-next.257",
+    "postject": "1.0.0-alpha.6"
+  }
+}

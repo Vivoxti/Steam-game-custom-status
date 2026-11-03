@@ -8,10 +8,19 @@
         <UseWPF>true</UseWPF>
         <UseWindowsForms>true</UseWindowsForms>
         <ApplicationIcon>Assets\Icon.ico</ApplicationIcon>
+        <Version>1.1.0</Version>
         <RuntimeIdentifier>win-x64</RuntimeIdentifier>
         <PublishSingleFile>true</PublishSingleFile>
         <SelfContained>true</SelfContained>
         <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+        <DefaultItemExcludes>$(DefaultItemExcludes);tools\**</DefaultItemExcludes>
+        <AllowedReferenceRelatedFileExtensions>.pdb</AllowedReferenceRelatedFileExtensions>
+    </PropertyGroup>
+
+    <!-- Nintendo bridge: nxapi bundled as a Node single-executable app, brotli-compressed and embedded. -->
+    <PropertyGroup>
+        <NxapiBridgeDirectory>$(MSBuildProjectDirectory)\tools\nxapi-bridge</NxapiBridgeDirectory>
+        <NxapiBridgePackage>$(NxapiBridgeDirectory)\dist\nxapi-bridge.exe.br</NxapiBridgePackage>
     </PropertyGroup>
 
     <ItemGroup>
@@ -21,9 +30,34 @@
         <EmbeddedResource Include="Assets\IconInactive.ico">
             <LogicalName>SteamGameCustomStatus.Assets.IconInactive.ico</LogicalName>
         </EmbeddedResource>
+        <EmbeddedResource Include="Assets\IconSwitch.ico">
+            <LogicalName>SteamGameCustomStatus.Assets.IconSwitch.ico</LogicalName>
+        </EmbeddedResource>
         <EmbeddedResource Include="Assets\GameCatalogs\ConsoleExclusivesTop200.json">
             <LogicalName>SteamGameCustomStatus.Assets.GameCatalogs.ConsoleExclusivesTop200.json</LogicalName>
         </EmbeddedResource>
     </ItemGroup>
+
+    <ItemGroup>
+      <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4314.35" />
+    </ItemGroup>
+
+    <!-- Builds the bridge once when it is missing (needs Node.js). Pass -p:SkipNxapiBridgeBuild=true to skip. -->
+    <Target Name="BuildNxapiBridge"
+            BeforeTargets="AssignTargetPaths"
+            Condition="!Exists('$(NxapiBridgePackage)') And '$(SkipNxapiBridgeBuild)' != 'true' And '$(DesignTimeBuild)' != 'true'">
+        <Message Importance="high" Text="Building nxapi-bridge (first build only)..." />
+        <Exec Command="npm ci &amp;&amp; npm run build" WorkingDirectory="$(NxapiBridgeDirectory)" ContinueOnError="true" />
+    </Target>
+
+    <Target Name="EmbedNxapiBridge" AfterTargets="BuildNxapiBridge" BeforeTargets="AssignTargetPaths">
+        <ItemGroup Condition="Exists('$(NxapiBridgePackage)')">
+            <EmbeddedResource Include="$(NxapiBridgePackage)">
+                <LogicalName>SteamGameCustomStatus.Assets.nxapi-bridge.exe.br</LogicalName>
+            </EmbeddedResource>
+        </ItemGroup>
+        <Warning Condition="!Exists('$(NxapiBridgePackage)') And '$(DesignTimeBuild)' != 'true'"
+                 Text="nxapi-bridge is not built; the Nintendo Switch feature will be unavailable in this build. Run 'npm ci &amp;&amp; npm run build' in tools\nxapi-bridge." />
+    </Target>
 
 </Project>

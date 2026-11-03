@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using SteamGameCustomStatus.Nintendo;
 using SteamGameCustomStatus.Steam;
 using SteamGameCustomStatus.Workflows;
 using System.Windows.Input;
@@ -20,6 +21,7 @@ public partial class MainWindow
     private readonly Queue<InlineMessageRequest> _inlineMessageQueue = new();
     private InlineMessageRequest? _activeInlineMessage;
     private bool _isInlineMessageHiding;
+    private SwitchPresenceController? _switchPresence;
 
     public MainWindow()
     {
@@ -32,6 +34,61 @@ public partial class MainWindow
         _inlineMessageTimer.Tick += InlineMessageTimer_Tick;
 
         RefreshSteamRegistrationStatus();
+
+        AttachSwitchPresence();
+        IsVisibleChanged += (_, _) => AttachSwitchPresence();
+    }
+
+    private void AttachSwitchPresence()
+    {
+        if (_forceClose)
+        {
+            return;
+        }
+
+        // The controller may not exist yet when the window is constructed; pick it up when the window is shown.
+        var controller = (Wpf.Application.Current as App)?.SwitchPresence;
+        if (!ReferenceEquals(controller, _switchPresence))
+        {
+            DetachSwitchPresence();
+            _switchPresence = controller;
+            if (_switchPresence is not null)
+            {
+                _switchPresence.StatusChanged += SwitchPresence_StatusChanged;
+            }
+        }
+
+        RefreshSwitchStatus();
+    }
+
+    private void DetachSwitchPresence()
+    {
+        if (_switchPresence is not null)
+        {
+            _switchPresence.StatusChanged -= SwitchPresence_StatusChanged;
+            _switchPresence = null;
+        }
+    }
+
+    private void SwitchPresence_StatusChanged(object? sender, EventArgs e)
+    {
+        RefreshSwitchStatus();
+    }
+
+    private void RefreshSwitchStatus()
+    {
+        var status = _switchPresence?.Status;
+        var text = status?.Text ?? "Not available";
+        var brushKey = status?.Kind switch
+        {
+            SwitchPresenceStatusKind.Playing => "SuccessText",
+            SwitchPresenceStatusKind.Error or SwitchPresenceStatusKind.PendingSteamRestart => "WarningText",
+            _ => "TextSecondary"
+        };
+
+        NintendoStatusText.Text = text;
+        NintendoStatusText.ToolTip = text;
+        NintendoStatusText.Foreground = (Media.Brush)FindResource(brushKey);
     }
 
     public void RefreshSteamRegistrationStatus()
@@ -100,6 +157,7 @@ public partial class MainWindow
     public void ForceClose()
     {
         _forceClose = true;
+        DetachSwitchPresence();
         Close();
     }
 
@@ -248,6 +306,12 @@ public partial class MainWindow
         RefreshSteamRegistrationStatus();
     }
 
+    private void NintendoSwitch_Click(object sender, Wpf.RoutedEventArgs e)
+    {
+        NintendoSetupWorkflow.Run(this);
+        RefreshSwitchStatus();
+    }
+
     private void OpenSteamAddGame_Click(object sender, Wpf.RoutedEventArgs e)
     {
         OpenSteamAddGameWorkflow.Run(this);
@@ -269,6 +333,12 @@ public partial class MainWindow
         {
             DragMove();
         }
+    }
+
+    protected override void OnClosed(EventArgs e)
+    {
+        DetachSwitchPresence();
+        base.OnClosed(e);
     }
 
     protected override void OnClosing(CancelEventArgs e)

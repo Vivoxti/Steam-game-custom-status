@@ -1,0 +1,350 @@
+<Window x:Class="SteamGameCustomStatus.UI.Dialogs.NintendoLoginWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
+        Title="Sign in to Nintendo"
+        Width="480"
+        Height="720"
+        Background="#1E1E1E"
+        WindowStyle="None"
+        AllowsTransparency="False"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True"
+        WindowStartupLocation="CenterScreen"
+        PreviewKeyDown="Window_PreviewKeyDown">
+    <!--
+        AllowsTransparency is intentionally False: WebView2 is HWND-hosted and does not render inside layered
+        (transparent) WPF windows. The window is therefore a plain borderless dark window instead of the
+        rounded/shadowed card used by the other dialogs.
+    -->
+    <Window.Resources>
+        <SolidColorBrush x:Key="WindowBg" Color="#1E1E1E" />
+        <SolidColorBrush x:Key="BorderStroke" Color="#333333" />
+        <SolidColorBrush x:Key="TextPrimary" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="TextSecondary" Color="#999999" />
+        <SolidColorBrush x:Key="BtnBg" Color="#2D2D2D" />
+        <SolidColorBrush x:Key="BtnHover" Color="#383838" />
+        <SolidColorBrush x:Key="BtnPressed" Color="#252525" />
+        <SolidColorBrush x:Key="AccentColor" Color="#60CDFF" />
+        <SolidColorBrush x:Key="AccentHover" Color="#78D6FF" />
+        <SolidColorBrush x:Key="AccentPressed" Color="#4AB8E8" />
+        <SolidColorBrush x:Key="WarningBg" Color="#2A2114" />
+        <SolidColorBrush x:Key="WarningBorder" Color="#5C4420" />
+        <SolidColorBrush x:Key="WarningText" Color="#FFD38A" />
+        <SolidColorBrush x:Key="InputBg" Color="#2D2D2D" />
+        <SolidColorBrush x:Key="InputBgHover" Color="#333333" />
+        <SolidColorBrush x:Key="InputBorder" Color="#444444" />
+        <SolidColorBrush x:Key="InputBorderHover" Color="#565656" />
+        <SolidColorBrush x:Key="InputBorderFocus" Color="#60CDFF" />
+
+        <Style x:Key="ActionBtn" TargetType="Button">
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+            <Setter Property="Background" Value="{StaticResource BtnBg}" />
+            <Setter Property="FontFamily" Value="Segoe UI Variable Display, Segoe UI" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Height" Value="34" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{StaticResource BorderStroke}"
+                                BorderThickness="1"
+                                CornerRadius="6"
+                                Padding="16,0">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource BtnHover}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource BtnPressed}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.5" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="AccentBtn" TargetType="Button" BasedOn="{StaticResource ActionBtn}">
+            <Setter Property="Background" Value="{StaticResource AccentColor}" />
+            <Setter Property="Foreground" Value="#000000" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="6"
+                                Padding="16,0">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource AccentHover}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource AccentPressed}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.5" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="CloseBtn" TargetType="Button">
+            <Setter Property="Width" Value="36" />
+            <Setter Property="Height" Value="28" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{StaticResource TextSecondary}" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="4">
+                            <TextBlock Text="✕" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Foreground="{TemplateBinding Foreground}" FontSize="11" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#C42B1C" />
+                                <Setter Property="Foreground" Value="White" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="LinkBtn" TargetType="Button">
+            <Setter Property="Foreground" Value="{StaticResource AccentColor}" />
+            <Setter Property="FontFamily" Value="Segoe UI Variable Display, Segoe UI" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <TextBlock x:Name="Label"
+                                   Foreground="{TemplateBinding Foreground}"
+                                   Text="{TemplateBinding Content}" />
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Label" Property="TextDecorations" Value="Underline" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Label" Property="Opacity" Value="0.4" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="InputChrome" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource InputBg}" />
+            <Setter Property="BorderBrush" Value="{StaticResource InputBorder}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{StaticResource InputBgHover}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource InputBorderHover}" />
+                </Trigger>
+                <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                    <Setter Property="Background" Value="{StaticResource InputBg}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource InputBorderFocus}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+
+    <Border Background="{StaticResource WindowBg}"
+            BorderBrush="{StaticResource BorderStroke}"
+            BorderThickness="1">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <!-- Title bar -->
+            <DockPanel Grid.Row="0"
+                       Height="40"
+                       Background="Transparent"
+                       MouseLeftButtonDown="TitleBar_OnMouseLeftButtonDown">
+                <Button DockPanel.Dock="Right" Margin="0,6,8,0" VerticalAlignment="Top"
+                        Style="{StaticResource CloseBtn}"
+                        ToolTip="Close"
+                        Click="Close_Click" />
+                <TextBlock Margin="16,0,0,0" VerticalAlignment="Center"
+                           FontFamily="Segoe UI Variable Display, Segoe UI"
+                           FontSize="12" Foreground="{StaticResource TextSecondary}"
+                           Text="Sign in to Nintendo" />
+            </DockPanel>
+
+            <!-- Hint -->
+            <Border Grid.Row="1"
+                    Margin="16,0,16,0"
+                    Padding="12,8"
+                    Background="{StaticResource WarningBg}"
+                    BorderBrush="{StaticResource WarningBorder}"
+                    BorderThickness="1"
+                    CornerRadius="8">
+                <TextBlock FontFamily="Segoe UI Variable Display, Segoe UI"
+                           FontSize="12"
+                           FontWeight="SemiBold"
+                           Foreground="{StaticResource WarningText}"
+                           TextWrapping="Wrap"
+                           Text="Sign in with the BOT Nintendo account, not your main one." />
+            </Border>
+
+            <!-- Error card -->
+            <Border x:Name="ErrorCard"
+                    Grid.Row="2"
+                    Margin="16,8,16,0"
+                    Padding="12,8"
+                    Background="{StaticResource WarningBg}"
+                    BorderBrush="{StaticResource WarningBorder}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Visibility="Collapsed">
+                <DockPanel LastChildFill="True">
+                    <Button x:Name="RetryButton"
+                            DockPanel.Dock="Right"
+                            Margin="12,0,0,0"
+                            VerticalAlignment="Center"
+                            Height="28"
+                            FontSize="12"
+                            Content="Try again"
+                            Style="{StaticResource ActionBtn}"
+                            Click="Retry_Click" />
+                    <TextBlock x:Name="ErrorText"
+                               VerticalAlignment="Center"
+                               FontFamily="Segoe UI Variable Display, Segoe UI"
+                               FontSize="12"
+                               Foreground="{StaticResource WarningText}"
+                               TextWrapping="Wrap" />
+                </DockPanel>
+            </Border>
+
+            <!-- Content: browser / fallback / busy -->
+            <Grid Grid.Row="3" Margin="0,12,0,0">
+                <wv2:WebView2 x:Name="Browser"
+                              Visibility="Hidden" />
+
+                <StackPanel x:Name="FallbackPanel"
+                            Margin="16,4,16,0"
+                            VerticalAlignment="Top"
+                            Visibility="Collapsed">
+                    <TextBlock x:Name="FallbackReasonText"
+                               Margin="0,0,0,10"
+                               FontFamily="Segoe UI Variable Display, Segoe UI"
+                               FontSize="12"
+                               Foreground="{StaticResource WarningText}"
+                               TextWrapping="Wrap"
+                               Visibility="Collapsed" />
+                    <TextBlock FontFamily="Segoe UI Variable Display, Segoe UI"
+                               FontSize="13"
+                               FontWeight="SemiBold"
+                               Foreground="{StaticResource TextPrimary}"
+                               Text="Sign in with your browser" />
+                    <TextBlock Margin="0,8,0,0"
+                               FontFamily="Segoe UI Variable Display, Segoe UI"
+                               FontSize="12"
+                               Foreground="{StaticResource TextSecondary}"
+                               TextWrapping="Wrap"
+                               Text="1. Open the sign-in page and sign in with the bot account." />
+                    <TextBlock Margin="0,4,0,0"
+                               FontFamily="Segoe UI Variable Display, Segoe UI"
+                               FontSize="12"
+                               Foreground="{StaticResource TextSecondary}"
+                               TextWrapping="Wrap"
+                               Text="2. Right-click the “Select this account” button and choose Copy link." />
+                    <TextBlock Margin="0,4,0,0"
+                               FontFamily="Segoe UI Variable Display, Segoe UI"
+                               FontSize="12"
+                               Foreground="{StaticResource TextSecondary}"
+                               TextWrapping="Wrap"
+                               Text="3. Paste the link below and continue." />
+
+                    <Button Margin="0,12,0,0"
+                            Content="Open sign-in page in browser"
+                            Style="{StaticResource ActionBtn}"
+                            Click="OpenBrowser_Click" />
+
+                    <Border Margin="0,12,0,0"
+                            Style="{StaticResource InputChrome}"
+                            CornerRadius="6"
+                            Height="40"
+                            Padding="2,0">
+                        <TextBox x:Name="PasteTextBox"
+                                 Background="Transparent"
+                                 Foreground="{StaticResource TextPrimary}"
+                                 CaretBrush="{StaticResource TextPrimary}"
+                                 FontFamily="Segoe UI Variable Text, Segoe UI"
+                                 FontSize="13"
+                                 BorderThickness="0"
+                                 Margin="0"
+                                 Padding="8,5,8,6"
+                                 VerticalContentAlignment="Center"
+                                 TextOptions.TextFormattingMode="Display"
+                                 PreviewKeyDown="PasteTextBox_PreviewKeyDown" />
+                    </Border>
+                    <TextBlock Margin="2,6,0,0"
+                               FontFamily="Segoe UI Variable Display, Segoe UI"
+                               FontSize="11"
+                               Foreground="{StaticResource TextSecondary}"
+                               Text="The link starts with npf71b963c1b7b6d119://auth" />
+
+                    <Button Margin="0,12,0,0"
+                            Content="Continue"
+                            Style="{StaticResource AccentBtn}"
+                            Click="Continue_Click" />
+                </StackPanel>
+
+                <StackPanel x:Name="BusyPanel"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Visibility="Collapsed">
+                    <TextBlock x:Name="BusyText"
+                               HorizontalAlignment="Center"
+                               FontFamily="Segoe UI Variable Display, Segoe UI"
+                               FontSize="13"
+                               Foreground="{StaticResource TextPrimary}" />
+                    <ProgressBar Margin="0,12,0,0"
+                                 Width="180"
+                                 Height="3"
+                                 BorderThickness="0"
+                                 IsIndeterminate="True"
+                                 Foreground="{StaticResource AccentColor}"
+                                 Background="{StaticResource BtnBg}" />
+                </StackPanel>
+            </Grid>
+
+            <!-- Footer -->
+            <Border Grid.Row="4"
+                    Padding="16,10"
+                    BorderBrush="{StaticResource BorderStroke}"
+                    BorderThickness="0,1,0,0">
+                <Button x:Name="ModeLinkButton"
+                        HorizontalAlignment="Center"
+                        Content="Sign in with your browser instead"
+                        Style="{StaticResource LinkBtn}"
+                        Click="ModeLink_Click" />
+            </Border>
+        </Grid>
+    </Border>
+</Window>

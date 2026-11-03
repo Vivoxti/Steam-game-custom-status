@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.Reflection;
 using SteamGameCustomStatus.Infrastructure;
+using SteamGameCustomStatus.Nintendo;
 using SteamGameCustomStatus.Steam;
 using SteamGameCustomStatus.UI.Windows;
 using SteamGameCustomStatus.Workflows;
@@ -18,17 +19,21 @@ public partial class App : Wpf.Application
     private static readonly TimeSpan SteamLaunchActiveGracePeriod = TimeSpan.FromMinutes(2);
     private const string ActiveTrayIconResourceName = "SteamGameCustomStatus.Assets.Icon.ico";
     private const string InactiveTrayIconResourceName = "SteamGameCustomStatus.Assets.IconInactive.ico";
+    private const string SwitchTrayIconResourceName = "SteamGameCustomStatus.Assets.IconSwitch.ico";
 
     private Forms.NotifyIcon? _notifyIcon;
     private Forms.ToolStripMenuItem? _renameMenuItem;
     private Forms.ToolStripMenuItem? _createDesktopShortcutMenuItem;
     private Forms.ToolStripMenuItem? _launchViaSteamMenuItem;
     private Forms.ToolStripSeparator? _actionsSeparator;
+    private Forms.ToolStripMenuItem? _switchStatusMenuItem;
     private MainWindow? _mainWindow;
     private SingleInstanceCoordinator? _singleInstanceCoordinator;
+    private SwitchPresenceController? _switchPresenceController;
     private Threading.DispatcherTimer? _activeTrayRefreshTimer;
     private Drawing.Icon? _activeTrayIcon;
     private Drawing.Icon? _inactiveTrayIcon;
+    private Drawing.Icon? _switchTrayIcon;
     private DateTime? _steamLaunchActiveGraceDeadlineUtc;
     private uint _steamSessionAppId;
     private bool _isSteamLaunch;
@@ -42,6 +47,16 @@ public partial class App : Wpf.Application
         base.OnStartup(e);
 
         ShutdownMode = Wpf.ShutdownMode.OnExplicitShutdown;
+
+        if (SwitchPresenceHolder.TryGetHoldKey(e.Args, out var holdKey))
+        {
+            // Launched by Steam from a per-game Switch shortcut: no tray, no single-instance, no Steam cleanup.
+            _isExiting = true;
+            _skipSteamExitCleanup = true;
+            Task.Run(() => SwitchPresenceHolder.Run(holdKey))
+                .ContinueWith(_ => Dispatcher.BeginInvoke(new Action(() => Shutdown())));
+            return;
+        }
 
         _isSteamLaunch = LaunchContextDetector.IsSteamLaunch();
         _steamLaunchActiveGraceDeadlineUtc = _isSteamLaunch
@@ -58,12 +73,20 @@ public partial class App : Wpf.Application
         }
 
         InitializeTrayIcon();
+        InitializeSwitchPresence();
     }
 
     protected override void OnExit(Wpf.ExitEventArgs e)
     {
         EnsureSteamExitCleanupScheduled();
         TryClearRunningAppIdDirect();
+
+        if (_switchPresenceController is not null)
+        {
+            _switchPresenceController.StatusChanged -= SwitchPresenceController_StatusChanged;
+            _switchPresenceController.Dispose();
+            _switchPresenceController = null;
+        }
 
         if (_activeTrayRefreshTimer is not null)
         {
@@ -88,6 +111,9 @@ public partial class App : Wpf.Application
         _inactiveTrayIcon?.Dispose();
         _inactiveTrayIcon = null;
 
+        _switchTrayIcon?.Dispose();
+        _switchTrayIcon = null;
+
         base.OnExit(e);
     }
 
@@ -103,6 +129,7 @@ public partial class App : Wpf.Application
     {
         _activeTrayIcon = LoadEmbeddedIcon(ActiveTrayIconResourceName) ?? GetFallbackProcessIcon();
         _inactiveTrayIcon = LoadEmbeddedIcon(InactiveTrayIconResourceName) ?? (Drawing.Icon)_activeTrayIcon.Clone();
+        _switchTrayIcon = LoadEmbeddedIcon(SwitchTrayIconResourceName) ?? (Drawing.Icon)_activeTrayIcon.Clone();
         _activeTrayRefreshTimer = new Threading.DispatcherTimer
         {
             Interval = ActiveTrayRefreshInterval
@@ -110,7 +137,10 @@ public partial class App : Wpf.Application
         _activeTrayRefreshTimer.Tick += ActiveTrayRefreshTimer_Tick;
 
         var contextMenu = new Forms.ContextMenuStrip();
+        _switchStatusMenuItem = new Forms.ToolStripMenuItem { Enabled = false, Visible = false };
+        contextMenu.Items.Add(_switchStatusMenuItem);
         contextMenu.Items.Add("Open", null, (_, _) => ShowMainWindow());
+        contextMenu.Items.Add("Nintendo Switch…", null, (_, _) => RunNintendoSetupWorkflow());
         _renameMenuItem = new Forms.ToolStripMenuItem("Rename", null, (_, _) => RunRenameWorkflow());
         _createDesktopShortcutMenuItem = new Forms.ToolStripMenuItem(
             "Create Desktop Shortcut",
@@ -168,6 +198,69 @@ public partial class App : Wpf.Application
             _mainWindow.RefreshSteamRegistrationStatus();
         }));
     }
+
+    private void InitializeSwitchPresence()
+    {
+        _switchPresenceController = new SwitchPresenceController(
+            Dispatcher,
+            isSteamLaunch: () => _isSteamLaunch,
+            isOwnSteamAppId: IsOwnSteamAppId,
+            exitForSteamRelaunch: ExitForSteamRelaunch,
+            notify: ShowTrayNotification);
+        _switchPresenceController.StatusChanged += SwitchPresenceController_StatusChanged;
+        _switchPresenceController.Start();
+    }
+
+    private void SwitchPresenceController_StatusChanged(object? sender, EventArgs e)
+    {
+        if (_switchPresenceController is null || _notifyIcon is null || _switchStatusMenuItem is null)
+        {
+            return;
+        }
+
+        var status = _switchPresenceController.Status;
+        var isVisible = status.Kind is not (SwitchPresenceStatusKind.Disabled or SwitchPresenceStatusKind.NotConfigured);
+        _switchStatusMenuItem.Text = "Switch: " + status.Text;
+        _switchStatusMenuItem.Visible = isVisible;
+
+        var trayText = status.Kind == SwitchPresenceStatusKind.Playing && status.Title is not null
+            ? $"Steam Game Custom Status — {status.Title}"
+            : "Steam Game Custom Status";
+        _notifyIcon.Text = trayText.Length > 127 ? trayText[..127] : trayText;
+        RefreshTrayMenuState();
+    }
+
+    private bool IsOwnSteamAppId(uint appId)
+    {
+        if (appId == 0)
+        {
+            return false;
+        }
+
+        if (_steamSessionAppId != 0 && appId == _steamSessionAppId)
+        {
+            return true;
+        }
+
+        var shortcutInfoResult = SteamShortcutRenamer.GetCurrentShortcutInfoForLaunch();
+        return shortcutInfoResult is { Success: true, ShortcutInfo: not null } && shortcutInfoResult.ShortcutInfo.AppId == appId;
+    }
+
+    private void ShowTrayNotification(string message)
+    {
+        _notifyIcon?.ShowBalloonTip(5000, "Nintendo Switch", message, Forms.ToolTipIcon.None);
+    }
+
+    private void RunNintendoSetupWorkflow()
+    {
+        var visibleOwner = _mainWindow is { IsVisible: true, WindowState: not Wpf.WindowState.Minimized }
+            ? _mainWindow
+            : null;
+
+        NintendoSetupWorkflow.Run(visibleOwner);
+    }
+
+    internal SwitchPresenceController? SwitchPresence => _switchPresenceController;
 
     private void RunRenameWorkflow()
     {
@@ -297,7 +390,8 @@ public partial class App : Wpf.Application
         }
 
         var isActive = IsCurrentShortcutActiveForDisplay(isRegistered);
-        var desiredIcon = isActive ? _activeTrayIcon : _inactiveTrayIcon;
+        var isSwitchPlaying = _switchPresenceController?.Status.Kind == SwitchPresenceStatusKind.Playing;
+        var desiredIcon = isSwitchPlaying ? _switchTrayIcon : isActive ? _activeTrayIcon : _inactiveTrayIcon;
         if (desiredIcon is not null && !ReferenceEquals(_notifyIcon.Icon, desiredIcon))
         {
             _notifyIcon.Icon = desiredIcon;
@@ -366,6 +460,12 @@ public partial class App : Wpf.Application
 
         _isExiting = true;
         _skipSteamExitCleanup = skipSteamExitCleanup;
+        if (!skipSteamExitCleanup)
+        {
+            // A handoff to a newer instance keeps the current Switch holder; a real exit ends the Switch status.
+            _switchPresenceController?.StopHolders();
+        }
+
         EnsureSteamExitCleanupScheduled();
         TryClearRunningAppIdDirect();
         _mainWindow?.ForceClose();
@@ -454,7 +554,9 @@ public partial class App : Wpf.Application
             return;
         }
 
-        if (_steamLaunchActiveGraceDeadlineUtc is { } graceDeadline && DateTime.UtcNow <= graceDeadline)
+        if (_steamLaunchActiveGraceDeadlineUtc is { } graceDeadline &&
+            DateTime.UtcNow <= graceDeadline &&
+            SteamShortcutRenamer.GetSwitchGameShortcuts().All(shortcut => shortcut.AppId != runningAppId))
         {
             _steamSessionAppId = runningAppId;
         }
